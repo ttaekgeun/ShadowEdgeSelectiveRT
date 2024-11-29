@@ -1,0 +1,294 @@
+/*
+ * Sogang University
+ *
+ * Graphics Lab, 2024
+ *
+ */
+
+#version 460
+#extension GL_EXT_ray_tracing : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+#extension GL_EXT_nonuniform_qualifier : require
+
+#include "random.glsl"
+#include "geometrytypes.glsl"
+#include "../base/light.glsl"
+#include "../base/pbr.glsl"
+
+struct RayPayload {
+	vec3 color;
+	float distance;
+	vec3 normal;
+	uint objectID;
+	vec3 albedo;	
+	float metallic;	
+};
+layout(location = 0) rayPayloadEXT RayPayload rayPayload;
+layout(location = 1) rayPayloadEXT uint payloadSeed;
+layout(location = 2) rayPayloadEXT bool shadowed;
+
+layout(binding = 0) uniform accelerationStructureEXT topLevelAS;
+layout(binding = 1, rgba8) uniform image2D image;
+layout(binding = 2) buffer GeometryNodes { GeometryNode nodes[]; } geometryNodes;
+layout(binding = 3) uniform uniformBuffer
+{
+	mat4 viewInverse;
+	mat4 projInverse;
+	mat4 lightSpace;
+	uint frame;
+	vec4 lightPos[1];
+} ubo;
+layout(binding = 4) uniform sampler2D posSampler;
+layout(binding = 5) uniform sampler2D normSampler;
+layout(binding = 6) uniform sampler2D albedoSampler;
+layout(binding = 7) uniform sampler2D metallicRoughSampler;
+layout(binding = 8) uniform sampler2D emisSampler;
+layout(binding = 9) uniform samplerCube samplerColor;
+layout(binding = 10) uniform sampler2D shadowMap;
+layout(binding = 11) uniform sampler2D textures[];
+
+const mat4 biasMat = mat4( 
+	0.5, 0.0, 0.0, 0.0,
+	0.0, 0.5, 0.0, 0.0,
+	0.0, 0.0, 1.0, 0.0,
+	0.5, 0.5, 0.0, 1.0 );
+
+#define amb 0.1
+
+float textureProj(vec4 shadowCoord, vec2 off)
+{
+    float shadow = 1.0;
+
+    if (shadowCoord.z > -1.0f && shadowCoord.z < 1.0f) 
+    {
+        float dist = texture(shadowMap, shadowCoord.st + off).r;
+		if (shadowCoord.w > 0.0f && dist < shadowCoord.z)
+        {
+            shadow = amb;
+        }
+    }
+    return shadow;
+}
+
+float filterPCF(vec4 sc)
+{
+    ivec2 texDim = textureSize(shadowMap, 0);
+    float scale = 1.5f;
+    float dx = scale * 1.0f / float(texDim.x);
+    float dy = scale * 1.0f / float(texDim.y);
+
+    float shadowFactor = 0.0f;
+    int count = 0;
+    int range = 2;  // PCF 필터링 범위를 증가시켜 부드러운 그림자 처리
+
+    for (int x = -range; x <= range; x++)
+    {
+        for (int y = -range; y <= range; y++)
+        {
+            shadowFactor += textureProj(sc, vec2(dx * x, dy * y));
+            count++;
+        }
+    }
+    return shadowFactor / count;
+}
+
+// Spot light unused
+/*vec3 CalculateSpotLight(vec3 pos, int lightIdx, LightInfo lightInfo, vec4 lightPos)
+{   // These code below is the old version which doesn't read light informations from glTF file.
+    vec3 lightToPixel = normalize(pos - lightPos.xyz);
+    float spotFactor = dot(lightToPixel, lightInfo.spotDirection);
+
+    if (spotFactor > cos(lightInfo.spotCutoff * DEG_TO_RAD)) {
+        vec3 spotResultColor = pow(spotFactor, 2.0f) * vec3(1.0f);
+        return spotResultColor;
+    }
+    else {
+        return vec3(0.0f, 0.0f, 0.0f);
+    }
+}*/
+
+float LinearizeDepth(float depth)
+{
+  float n = 1.0f;
+  float f = 500.0f;
+  float z = depth;
+  return (2.0 * n) / (f + n - z * (f - n));	
+}
+
+void main() 
+{
+	const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);	// pixel position
+	const vec2 inUV = pixelCenter/vec2(gl_LaunchSizeEXT.xy);	// pixel position in WdC
+	vec2 d = inUV * 2.0f - 1.0f;	// pixel position in NDC
+	
+	vec4 originPos = texture(posSampler, inUV).xyzw;
+	vec3 pos = originPos.xyz;
+	uint objectID = uint(round(originPos.w));
+
+	if (objectID-- == 0)
+    {
+        vec4 origin = ubo.viewInverse * vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        vec4 target = ubo.projInverse * vec4(d.x, d.y, 1.0f, 1.0f) ;    // (pixel position in EC) / Wc
+        vec3 direction = normalize(ubo.viewInverse * vec4(normalize(target.xyz), 0.0f)).xyz;
+        vec3 envColor = textureLod(samplerColor, direction, 0.0).rgb;
+        imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(envColor, 1.0f));
+        return;
+    }
+
+
+	vec3 albedo = pow(texture(albedoSampler, inUV).rgb, vec3(2.2));
+
+	vec3 aometallicRoughness = texture(metallicRoughSampler, inUV).rgb;
+	float ao = aometallicRoughness.r;
+	float roughness = aometallicRoughness.g;
+	float metallic = aometallicRoughness.b;
+
+	vec3 emissive = texture(emisSampler, inUV).rgb;
+
+	vec3 N = texture(normSampler, inUV).xyz;
+
+	vec3 V = normalize((ubo.viewInverse * vec4(0.0f, 0.0f, 0.0f, 1.0f)).xyz - pos);
+
+	int numOfLights = NUM_OF_LIGHTS;
+
+	GeometryNode geometryNode = geometryNodes.nodes[objectID];
+	float Kr = geometryNode.reflectance;
+	float Kt = geometryNode.refractance;
+	if(Kr>0.0f || Kt>0.0f){
+		albedo=vec3(0.0f);
+	}
+
+	float ior = geometryNode.ior;
+	vec3 F0 = vec3(pow((ior - 1)/(ior + 1), 2));
+	F0 = mix(F0, albedo, metallic);
+
+	vec3 pbrColor = vec3(0.0f);
+	vec4 ShadowCoord;
+	float shadow;
+	// Local Shading Part
+	{
+		vec3 Lo = vec3(0.0f);
+		for(int i = 0; i < numOfLights; i++) {
+
+			ShadowCoord = ( biasMat * ubo.lightSpace ) * vec4(pos, 1.0);
+			//shadow = textureProj(ShadowCoord / ShadowCoord.w, vec2(0.0));	// No PCF version.
+			shadow = filterPCF(ShadowCoord / ShadowCoord.w);
+			shadowed = (shadow != 1.0f);
+
+			// Light attenuation unused
+			if (!shadowed) {
+				vec3 L = normalize(ubo.lightPos[i].xyz - pos);
+
+				vec3 H = normalize(V + L);
+
+				vec3 radiance = lightInfo[i].color;
+
+				float NDF = DistributionGGX(N, H, roughness);
+				float G   = GeometrySmith(N, V, L, roughness);      
+				vec3 F    = FresnelSchlick(max(dot(H, V), 0.0), F0);
+           
+				vec3 numerator    = NDF * G * F; 
+				float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001; 
+				vec3 specular = numerator / denominator;
+        
+				vec3 kS = F;
+
+				vec3 kD = vec3(1.0) - kS;
+
+				kD *= 1.0 - metallic;	  
+
+				float NdotL = max(dot(N, L), 0.0);        
+
+				Lo += (kD * albedo / PI + specular) * radiance * NdotL;
+			}
+		}
+	
+		vec3 ambient = vec3(0.05f) * albedo;
+
+		pbrColor = ambient + emissive + Lo;
+	}
+
+	// Reflection and Refraction Part
+	{
+		const int iterations = 5;
+		float tKr = Kr;
+		float tKt = Kt;
+		float pKr = Kr;
+		float pKt = Kt;
+		float bior = 1.0f;
+		V = -V;
+		vec3 reflectionColor = vec3(0.0f);
+		vec3 refractionColor = vec3(0.0f);
+
+		vec3 reflrefr = vec3(0.0f);
+		if(Kr > 0.0f || Kt > 0.0f) {
+			for (int iter = 0; iter < iterations; iter++) {
+				//vec3 Fresnel;
+				if(tKr > 0.0f) {
+					V = normalize(reflect(V, N));
+					traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, 0xFF, 0, 0, 0, pos, 0.01f, V, 10000.0f, 0);
+					//Fresnel = (F0+(1-F0)*(1-pow(dot(N,V),5)));
+					geometryNode = geometryNodes.nodes[rayPayload.objectID];
+					if (geometryNode.reflectance == 0.0f && geometryNode.refractance == 0.0f) {
+						reflectionColor += /*Fresnel */ rayPayload.color * pKr;
+					}
+					if (rayPayload.distance < 0.0f) {	// from miss shader
+						pbrColor += /*Fresnel */ rayPayload.color; 
+						break;
+					}
+
+					N = rayPayload.normal;
+					const vec3 hitPos = pos + V * rayPayload.distance;
+					pos = hitPos;
+
+					Kr = tKr;
+					pKr *= tKr = geometryNode.reflectance;
+					ior = geometryNode.ior;
+					F0 = vec3(pow((ior - 1)/(ior + 1), 2));
+					F0 = mix(F0, rayPayload.albedo, rayPayload.metallic);
+				}
+				if(tKt > 0.0f) {
+					V = normalize(refract(V, N, bior / ior));
+					traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, 0xFF, 0, 0, 0, pos, 0.01f, V, 10000.0f, 0);
+					geometryNode = geometryNodes.nodes[rayPayload.objectID];
+					if (geometryNode.reflectance == 0.0f && geometryNode.refractance == 0.0f) {
+						refractionColor += /*(Kr>0.0f?vec3(1.0f)-Fresnel:vec3(1.0f)) */ rayPayload.color * pKt;
+					}
+					if (rayPayload.distance < 0.0f) {	// from miss shader
+						pbrColor += /*(Kr>0.0f?vec3(1.0f)-Fresnel:vec3(1.0f)) */ rayPayload.color; 
+						break;
+					}
+			
+					Kt = tKt;
+					bior = ior;
+					pKr *= tKt = geometryNode.refractance;
+					ior = geometryNode.ior;
+
+					N = rayPayload.normal;
+					if (dot(V, N) > 0.0f) {	// if the ray is going out from inside to outside.
+						N *= -1.0f;
+						//ior = 1.5f;
+						ior = 1.5f;
+					}
+					F0 = vec3(pow((ior - 1)/(ior + 1), 2));
+					F0 = mix(F0, rayPayload.albedo, rayPayload.metallic);
+
+					const vec3 hitPos = pos + V * rayPayload.distance;
+					pos = hitPos - N * 0.001;
+				}
+				if(iter == iterations - 1 || (tKr == 0.0f && tKt == 0.0f)) {
+					pbrColor += reflectionColor + refractionColor;
+					break;
+				}
+			}
+		}
+	}
+
+	pbrColor = pow(pbrColor, vec3(1.0f / 2.2f));
+
+	// for shadow map debugging
+	//float depth = texture(shadowMap, inUV).r;
+	//pbrColor = vec3(1.0-LinearizeDepth(depth));
+
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(pbrColor, 1.0f));	// write a single texel into an image.
+}

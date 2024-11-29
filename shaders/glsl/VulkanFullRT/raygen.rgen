@@ -1,0 +1,86 @@
+/*
+ * Sogang Univ, Graphics Lab, 2024
+ * 
+ * Vulkan Full Raytracing
+ * 
+ */
+
+#version 460
+#extension GL_EXT_ray_tracing : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+
+#include "random.glsl"
+#include "../base/light.glsl"
+
+struct RayPayload {
+	vec3 color;
+	float distance;
+	vec3 normal;
+	uint effectFlag;
+};
+layout(location = 0) rayPayloadEXT RayPayload rayPayload;
+layout(location = 1) rayPayloadEXT uint payloadSeed;
+
+layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
+layout(binding = 1, set = 0, rgba8) uniform image2D image;
+layout(binding = 2, set = 0) uniform uniformBuffer
+{
+	mat4 viewInverse;
+	mat4 projInverse;
+	uint frame;
+	vec4 lightPos[1];
+} ubo;
+
+void main() 
+{
+	const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);	// pixel position
+	const vec2 inUV = pixelCenter/vec2(gl_LaunchSizeEXT.xy);	// pixel position in WdC
+	vec2 d = inUV * 2.0 - 1.0;	// pixel position in NDC
+
+	vec4 origin = ubo.viewInverse * vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	vec4 target = ubo.projInverse * vec4(d.x, d.y, 1.0f, 1.0f) ;	// (pixel position in EC) / Wc
+	vec4 direction = normalize(ubo.viewInverse * vec4(normalize(target.xyz), 0.0f));
+
+	float tmin = 0.01f;
+	float tmax = 10000.0f;
+
+	const int iterations = 5;
+
+	vec3 finalColor = vec3(0.0f);
+	for (int iter = 0; iter < iterations; iter++) {
+		traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, 0xff, 0, 0, 0, origin.xyz, tmin, direction.xyz, tmax, 0);
+		finalColor += rayPayload.color;
+
+		if (rayPayload.distance < 0.0f) {	// from miss shader
+			break;
+		} 
+		else if ((rayPayload.effectFlag & 0x1) != 0x0) {	// from chit shader & reflector 
+			vec3 normal_reflect = rayPayload.normal;
+
+			const vec4 hitPos = origin + direction * rayPayload.distance;
+			origin.xyz = hitPos.xyz + normal_reflect * tmin;
+			direction.xyz = reflect(direction.xyz, normal_reflect);
+		} 
+		else if ((rayPayload.effectFlag & 0x10) != 0x0) {	// from chit shader & refractor
+			vec3 normal_refract = rayPayload.normal;
+			vec3 normal_origin = (-1.0f) * rayPayload.normal;
+			float eta = 1.0f / 1.76f;
+
+			if (dot(direction.xyz, rayPayload.normal) > 0.0f) {	// when ray goes out from the sphere.
+				normal_refract *= -1.0f;
+				normal_origin *= -1.0f;
+				eta = 1.0f / eta;
+			}
+
+			const vec4 hitPos = origin + direction * rayPayload.distance;
+			origin.xyz = hitPos.xyz + normal_origin * tmin;
+			direction.xyz = refract(direction.xyz, normal_refract, eta);
+		}
+		else {	// from chit shader & not reflector & not refractor
+			finalColor = pow(finalColor, vec3(1.0f / 2.2f));	// Gamma correction
+			break;
+		}
+	}
+
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(finalColor, 1.0f));	// write a single texel into an image.
+}
