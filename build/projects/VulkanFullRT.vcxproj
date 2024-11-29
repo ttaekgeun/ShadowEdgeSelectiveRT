@@ -1,0 +1,184 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{697C6F72-DA4C-3BFD-B3BD-BC12E15E46CD}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.22621.0</WindowsTargetPlatformVersion>
+    <Platform>x64</Platform>
+    <ProjectName>VulkanFullRT</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\build\bin\Debug\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">VulkanFullRT.dir\Debug\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">VulkanFullRT</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</GenerateManifest>
+    <LocalDebuggerWorkingDirectory Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:/Users/grgogh/Desktop/Vulkan/SamsungVulkanRT_2024/bin</LocalDebuggerWorkingDirectory>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\build\bin\Release\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">VulkanFullRT.dir\Release\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">VulkanFullRT</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</GenerateManifest>
+    <LocalDebuggerWorkingDirectory Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:/Users/grgogh/Desktop/Vulkan/SamsungVulkanRT_2024/bin</LocalDebuggerWorkingDirectory>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>..\..\external;..\..\external\glm;..\..\external\gli;..\..\external\imgui;..\..\external\tinygltf;..\..\external\ktx\include;..\..\external\ktx\other_include;..\..\base;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;VK_USE_PLATFORM_WIN32_KHR;NOMINMAX;_USE_MATH_DEFINES;_CRT_SECURE_NO_WARNINGS;VK_PROJECT_ASSETS_DIR="C:/Users/grgogh/Desktop/Vulkan/SamsungVulkanRT_2024/assets/";VK_PROJECT_SHADERS_DIR="C:/Users/grgogh/Desktop/Vulkan/SamsungVulkanRT_2024/shaders/";CMAKE_INTDIR="Debug"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;VK_USE_PLATFORM_WIN32_KHR;NOMINMAX;_USE_MATH_DEFINES;_CRT_SECURE_NO_WARNINGS;VK_PROJECT_ASSETS_DIR=\"C:/Users/grgogh/Desktop/Vulkan/SamsungVulkanRT_2024/assets/\";VK_PROJECT_SHADERS_DIR=\"C:/Users/grgogh/Desktop/Vulkan/SamsungVulkanRT_2024/shaders/\";CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\glm;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\gli;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\imgui;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\tinygltf;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\ktx\include;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\ktx\other_include;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\glm;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\gli;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\imgui;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\tinygltf;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\ktx\include;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\ktx\other_include;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>..\base\Debug\base.lib;vulkan-1.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(VULKAN_SDK)/Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>Debug/VulkanFullRT.lib</ImportLibrary>
+      <ProgramDataBaseFile>../bin/Debug/VulkanFullRT.pdb</ProgramDataBaseFile>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>..\..\external;..\..\external\glm;..\..\external\gli;..\..\external\imgui;..\..\external\tinygltf;..\..\external\ktx\include;..\..\external\ktx\other_include;..\..\base;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;VK_USE_PLATFORM_WIN32_KHR;NOMINMAX;_USE_MATH_DEFINES;NDEBUG;_CRT_SECURE_NO_WARNINGS;VK_PROJECT_ASSETS_DIR="C:/Users/grgogh/Desktop/Vulkan/SamsungVulkanRT_2024/assets/";VK_PROJECT_SHADERS_DIR="C:/Users/grgogh/Desktop/Vulkan/SamsungVulkanRT_2024/shaders/";CMAKE_INTDIR="Release"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;VK_USE_PLATFORM_WIN32_KHR;NOMINMAX;_USE_MATH_DEFINES;NDEBUG;_CRT_SECURE_NO_WARNINGS;VK_PROJECT_ASSETS_DIR=\"C:/Users/grgogh/Desktop/Vulkan/SamsungVulkanRT_2024/assets/\";VK_PROJECT_SHADERS_DIR=\"C:/Users/grgogh/Desktop/Vulkan/SamsungVulkanRT_2024/shaders/\";CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\glm;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\gli;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\imgui;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\tinygltf;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\ktx\include;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\ktx\other_include;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\glm;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\gli;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\imgui;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\tinygltf;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\ktx\include;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\ktx\other_include;C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>..\base\Release\base.lib;vulkan-1.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(VULKAN_SDK)/Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>Release/VulkanFullRT.lib</ImportLibrary>
+      <ProgramDataBaseFile>../bin/Release/VulkanFullRT.pdb</ProgramDataBaseFile>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\projects\VulkanFullRT\VulkanFullRT.cpp" />
+    <None Include="..\..\shaders\glsl\VulkanFullRT\shadow.rchit" />
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\anyhit.rahit">
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\bufferreferences.glsl">
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\closesthitBasic.rchit">
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\geometryfunctions.glsl">
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\geometrytypes.glsl">
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\miss.rmiss">
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\random.glsl">
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\raygen.rgen">
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\shadow.rmiss">
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\build\ZERO_CHECK.vcxproj">
+      <Project>{A04A23E1-0CEE-33BA-BF1C-2CB9F1C41D88}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\build\base\base.vcxproj">
+      <Project>{6DBF6A14-0951-36D3-9097-168141D9309A}</Project>
+      <Name>base</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

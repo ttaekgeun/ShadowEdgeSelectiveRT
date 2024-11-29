@@ -1,0 +1,66 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\projects\VulkanHybridShadowmap\VulkanHybridShadowmap.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanHybridShadowmap\anyhit.rahit">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanHybridShadowmap\bufferreferences.glsl">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanHybridShadowmap\closesthit.rchit">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanHybridShadowmap\geometryfunctions.glsl">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanHybridShadowmap\geometrytypes.glsl">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanHybridShadowmap\miss.rmiss">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanHybridShadowmap\mrt.frag">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanHybridShadowmap\mrt.vert">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanHybridShadowmap\random.glsl">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanHybridShadowmap\raygen.rgen">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanHybridShadowmap\shadow.rmiss">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanHybridShadowmap\shadowmap.frag">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanHybridShadowmap\shadowmap.vert">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="..\..\projects\VulkanHybridShadowmap\ShadowEdgeDetection.cu">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="..\..\projects\VulkanHybridShadowmap\ShadowEdgeDetection.cuh">
+      <Filter>Source Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{556BBD9A-E4E9-3D17-975D-96952F412F5B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\GLSL">
+      <UniqueIdentifier>{F5C6EC72-FE16-32F6-A8BB-D232276B302F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{C2E95DB4-C701-3A85-A5BA-AE835F22C91A}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
