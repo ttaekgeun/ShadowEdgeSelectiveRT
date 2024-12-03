@@ -74,7 +74,7 @@ VkResult VulkanRTBase::createInstance(bool enableValidation)
 	// Enabled requested instance extensions
 	if (enabledInstanceExtensions.size() > 0)
 	{
-		for (const char * enabledExtension : enabledInstanceExtensions)
+		for (const char* enabledExtension : enabledInstanceExtensions)
 		{
 			// Output message if requested extension is not available
 			if (std::find(supportedInstanceExtensions.begin(), supportedInstanceExtensions.end(), enabledExtension) == supportedInstanceExtensions.end())
@@ -128,7 +128,8 @@ VkResult VulkanRTBase::createInstance(bool enableValidation)
 		if (validationLayerPresent) {
 			instanceCreateInfo.ppEnabledLayerNames = &validationLayerName;
 			instanceCreateInfo.enabledLayerCount = 1;
-		} else {
+		}
+		else {
 			std::cerr << "Validation layer VK_LAYER_KHRONOS_validation not present, validation is disabled";
 		}
 	}
@@ -198,7 +199,7 @@ void VulkanRTBase::prepare()
 	initSwapchain();
 	createCommandPool();
 	setupSwapChain();
-	//createCommandBuffers();
+	createCommandBuffers();
 	createSynchronizationPrimitives();
 	setupDepthStencil();
 	setupRenderPass();
@@ -266,7 +267,7 @@ void VulkanRTBase::nextFrame()
 	{
 		lastFPS = static_cast<uint32_t>((float)frameCounter * (1000.0f / fpsTimer));
 #if defined(_WIN32)
-		if (!settings.overlay)	{
+		if (!settings.overlay) {
 			std::string windowTitle = getWindowTitle();
 			SetWindowText(window, windowTitle.c_str());
 		}
@@ -524,7 +525,7 @@ void VulkanRTBase::renderLoop()
 		{
 			viewUpdated = false;
 		}
-		xcb_generic_event_t *event;
+		xcb_generic_event_t* event;
 		while ((event = xcb_poll_for_event(connection)))
 		{
 			handleEvent(event);
@@ -695,7 +696,7 @@ void VulkanRTBase::prepareFrame()
 
 void VulkanRTBase::submitFrame()
 {
-	VkResult result = swapChain.queuePresent(queue, &currentBuffer, &semaphores.renderComplete);
+	VkResult result = swapChain.queuePresent(queue, currentBuffer, semaphores.renderComplete);
 	// Recreate the swapchain if it's no longer compatible with the surface (OUT_OF_DATE) or no longer optimal for presentation (SUBOPTIMAL)
 	if ((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR)) {
 		windowResize();
@@ -965,7 +966,8 @@ bool VulkanRTBase::initVulkan()
 		uint32_t index = commandLineParser.getValueAsInt("gpuselection", 0);
 		if (index > gpuCount - 1) {
 			std::cerr << "Selected device index " << index << " is out of range, reverting to device 0 (use -listgpus to show available Vulkan devices)" << "\n";
-		} else {
+		}
+		else {
 			selectedDevice = index;
 		}
 	}
@@ -1027,7 +1029,8 @@ bool VulkanRTBase::initVulkan()
 	// Samples that make use of stencil will require a depth + stencil format, so we select from a different list
 	if (requiresStencil) {
 		validFormat = vks::tools::getSupportedDepthStencilFormat(physicalDevice, &depthFormat);
-	} else {
+	}
+	else {
 		validFormat = vks::tools::getSupportedDepthFormat(physicalDevice, &depthFormat);
 	}
 	assert(validFormat);
@@ -1062,7 +1065,7 @@ void VulkanRTBase::setupConsole(std::string title)
 {
 	AllocConsole();
 	AttachConsole(GetCurrentProcessId());
-	FILE *stream;
+	FILE* stream;
 	freopen_s(&stream, "CONIN$", "r", stdin);
 	freopen_s(&stream, "CONOUT$", "w+", stdout);
 	freopen_s(&stream, "CONOUT$", "w+", stderr);
@@ -1077,7 +1080,7 @@ void VulkanRTBase::setupConsole(std::string title)
 
 void VulkanRTBase::setupDPIAwareness()
 {
-	typedef HRESULT *(__stdcall *SetProcessDpiAwarenessFunc)(PROCESS_DPI_AWARENESS);
+	typedef HRESULT* (__stdcall* SetProcessDpiAwarenessFunc)(PROCESS_DPI_AWARENESS);
 
 	HMODULE shCore = LoadLibraryA("Shcore.dll");
 	if (shCore)
@@ -1129,11 +1132,11 @@ HWND VulkanRTBase::setupWindow(HINSTANCE hinstance, WNDPROC wndproc)
 		{
 			DEVMODE dmScreenSettings;
 			memset(&dmScreenSettings, 0, sizeof(dmScreenSettings));
-			dmScreenSettings.dmSize       = sizeof(dmScreenSettings);
-			dmScreenSettings.dmPelsWidth  = width;
+			dmScreenSettings.dmSize = sizeof(dmScreenSettings);
+			dmScreenSettings.dmPelsWidth = width;
 			dmScreenSettings.dmPelsHeight = height;
 			dmScreenSettings.dmBitsPerPel = 32;
-			dmScreenSettings.dmFields     = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
+			dmScreenSettings.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
 			if (ChangeDisplaySettings(&dmScreenSettings, CDS_FULLSCREEN) != DISP_CHANGE_SUCCESSFUL)
 			{
 				if (MessageBox(NULL, "Fullscreen Mode not supported!\n Switch to window mode?", "Error", MB_YESNO | MB_ICONEXCLAMATION) == IDYES)
@@ -1366,7 +1369,7 @@ void VulkanRTBase::handleMessages(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
 		break;
 	case WM_MOUSEWHEEL:
 	{
-		
+
 		short wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
 
 		if (camera.type == Camera::SG_camera) {
@@ -1431,92 +1434,92 @@ int32_t VulkanRTBase::handleAppInput(struct android_app* app, AInputEvent* event
 	{
 		int32_t eventSource = AInputEvent_getSource(event);
 		switch (eventSource) {
-			case AINPUT_SOURCE_JOYSTICK: {
-				// Left thumbstick
-				vulkanExample->gamePadState.axisLeft.x = AMotionEvent_getAxisValue(event, AMOTION_EVENT_AXIS_X, 0);
-				vulkanExample->gamePadState.axisLeft.y = AMotionEvent_getAxisValue(event, AMOTION_EVENT_AXIS_Y, 0);
-				// Right thumbstick
-				vulkanExample->gamePadState.axisRight.x = AMotionEvent_getAxisValue(event, AMOTION_EVENT_AXIS_Z, 0);
-				vulkanExample->gamePadState.axisRight.y = AMotionEvent_getAxisValue(event, AMOTION_EVENT_AXIS_RZ, 0);
+		case AINPUT_SOURCE_JOYSTICK: {
+			// Left thumbstick
+			vulkanExample->gamePadState.axisLeft.x = AMotionEvent_getAxisValue(event, AMOTION_EVENT_AXIS_X, 0);
+			vulkanExample->gamePadState.axisLeft.y = AMotionEvent_getAxisValue(event, AMOTION_EVENT_AXIS_Y, 0);
+			// Right thumbstick
+			vulkanExample->gamePadState.axisRight.x = AMotionEvent_getAxisValue(event, AMOTION_EVENT_AXIS_Z, 0);
+			vulkanExample->gamePadState.axisRight.y = AMotionEvent_getAxisValue(event, AMOTION_EVENT_AXIS_RZ, 0);
+			break;
+		}
+
+		case AINPUT_SOURCE_TOUCHSCREEN: {
+			int32_t action = AMotionEvent_getAction(event);
+
+			switch (action) {
+			case AMOTION_EVENT_ACTION_UP: {
+				vulkanExample->lastTapTime = AMotionEvent_getEventTime(event);
+				vulkanExample->touchPos.x = AMotionEvent_getX(event, 0);
+				vulkanExample->touchPos.y = AMotionEvent_getY(event, 0);
+				vulkanExample->touchTimer = 0.0;
+				vulkanExample->touchDown = false;
+				vulkanExample->camera.keys.up = false;
+
+				// Detect single tap
+				int64_t eventTime = AMotionEvent_getEventTime(event);
+				int64_t downTime = AMotionEvent_getDownTime(event);
+				if (eventTime - downTime <= vks::android::TAP_TIMEOUT) {
+					float deadZone = (160.f / vks::android::screenDensity) * vks::android::TAP_SLOP * vks::android::TAP_SLOP;
+					float x = AMotionEvent_getX(event, 0) - vulkanExample->touchPos.x;
+					float y = AMotionEvent_getY(event, 0) - vulkanExample->touchPos.y;
+					if ((x * x + y * y) < deadZone) {
+						vulkanExample->mouseState.buttons.left = true;
+					}
+				};
+
+				return 1;
 				break;
 			}
-
-			case AINPUT_SOURCE_TOUCHSCREEN: {
-				int32_t action = AMotionEvent_getAction(event);
-
-				switch (action) {
-					case AMOTION_EVENT_ACTION_UP: {
-						vulkanExample->lastTapTime = AMotionEvent_getEventTime(event);
-						vulkanExample->touchPos.x = AMotionEvent_getX(event, 0);
-						vulkanExample->touchPos.y = AMotionEvent_getY(event, 0);
-						vulkanExample->touchTimer = 0.0;
+			case AMOTION_EVENT_ACTION_DOWN: {
+				// Detect double tap
+				int64_t eventTime = AMotionEvent_getEventTime(event);
+				if (eventTime - vulkanExample->lastTapTime <= vks::android::DOUBLE_TAP_TIMEOUT) {
+					float deadZone = (160.f / vks::android::screenDensity) * vks::android::DOUBLE_TAP_SLOP * vks::android::DOUBLE_TAP_SLOP;
+					float x = AMotionEvent_getX(event, 0) - vulkanExample->touchPos.x;
+					float y = AMotionEvent_getY(event, 0) - vulkanExample->touchPos.y;
+					if ((x * x + y * y) < deadZone) {
+						vulkanExample->keyPressed(TOUCH_DOUBLE_TAP);
 						vulkanExample->touchDown = false;
-						vulkanExample->camera.keys.up = false;
-
-						// Detect single tap
-						int64_t eventTime = AMotionEvent_getEventTime(event);
-						int64_t downTime = AMotionEvent_getDownTime(event);
-						if (eventTime - downTime <= vks::android::TAP_TIMEOUT) {
-							float deadZone = (160.f / vks::android::screenDensity) * vks::android::TAP_SLOP * vks::android::TAP_SLOP;
-							float x = AMotionEvent_getX(event, 0) - vulkanExample->touchPos.x;
-							float y = AMotionEvent_getY(event, 0) - vulkanExample->touchPos.y;
-							if ((x * x + y * y) < deadZone) {
-								vulkanExample->mouseState.buttons.left = true;
-							}
-						};
-
-						return 1;
-						break;
 					}
-					case AMOTION_EVENT_ACTION_DOWN: {
-						// Detect double tap
-						int64_t eventTime = AMotionEvent_getEventTime(event);
-						if (eventTime - vulkanExample->lastTapTime <= vks::android::DOUBLE_TAP_TIMEOUT) {
-							float deadZone = (160.f / vks::android::screenDensity) * vks::android::DOUBLE_TAP_SLOP * vks::android::DOUBLE_TAP_SLOP;
-							float x = AMotionEvent_getX(event, 0) - vulkanExample->touchPos.x;
-							float y = AMotionEvent_getY(event, 0) - vulkanExample->touchPos.y;
-							if ((x * x + y * y) < deadZone) {
-								vulkanExample->keyPressed(TOUCH_DOUBLE_TAP);
-								vulkanExample->touchDown = false;
-							}
-						}
-						else {
-							vulkanExample->touchDown = true;
-						}
-						vulkanExample->touchPos.x = AMotionEvent_getX(event, 0);
-						vulkanExample->touchPos.y = AMotionEvent_getY(event, 0);
-						vulkanExample->mouseState.position.x = AMotionEvent_getX(event, 0);
-						vulkanExample->mouseState.position.y = AMotionEvent_getY(event, 0);
-						break;
-					}
-					case AMOTION_EVENT_ACTION_MOVE: {
-						bool handled = false;
-						if (vulkanExample->settings.overlay) {
-							ImGuiIO& io = ImGui::GetIO();
-							handled = io.WantCaptureMouse && vulkanExample->UIOverlay.visible;
-						}
-						if (!handled) {
-							int32_t eventX = AMotionEvent_getX(event, 0);
-							int32_t eventY = AMotionEvent_getY(event, 0);
-
-							float deltaX = (float)(vulkanExample->touchPos.y - eventY) * vulkanExample->camera.rotationSpeed * 0.5f;
-							float deltaY = (float)(vulkanExample->touchPos.x - eventX) * vulkanExample->camera.rotationSpeed * 0.5f;
-
-							vulkanExample->camera.rotate(glm::vec3(deltaX, 0.0f, 0.0f));
-							vulkanExample->camera.rotate(glm::vec3(0.0f, -deltaY, 0.0f));
-
-							vulkanExample->touchPos.x = eventX;
-							vulkanExample->touchPos.y = eventY;
-						}
-						break;
-					}
-					default:
-						return 1;
-						break;
 				}
+				else {
+					vulkanExample->touchDown = true;
+				}
+				vulkanExample->touchPos.x = AMotionEvent_getX(event, 0);
+				vulkanExample->touchPos.y = AMotionEvent_getY(event, 0);
+				vulkanExample->mouseState.position.x = AMotionEvent_getX(event, 0);
+				vulkanExample->mouseState.position.y = AMotionEvent_getY(event, 0);
+				break;
 			}
+			case AMOTION_EVENT_ACTION_MOVE: {
+				bool handled = false;
+				if (vulkanExample->settings.overlay) {
+					ImGuiIO& io = ImGui::GetIO();
+					handled = io.WantCaptureMouse && vulkanExample->UIOverlay.visible;
+				}
+				if (!handled) {
+					int32_t eventX = AMotionEvent_getX(event, 0);
+					int32_t eventY = AMotionEvent_getY(event, 0);
 
-			return 1;
+					float deltaX = (float)(vulkanExample->touchPos.y - eventY) * vulkanExample->camera.rotationSpeed * 0.5f;
+					float deltaY = (float)(vulkanExample->touchPos.x - eventX) * vulkanExample->camera.rotationSpeed * 0.5f;
+
+					vulkanExample->camera.rotate(glm::vec3(deltaX, 0.0f, 0.0f));
+					vulkanExample->camera.rotate(glm::vec3(0.0f, -deltaY, 0.0f));
+
+					vulkanExample->touchPos.x = eventX;
+					vulkanExample->touchPos.y = eventY;
+				}
+				break;
+			}
+			default:
+				return 1;
+				break;
+			}
+		}
+
+									  return 1;
 		}
 	}
 
@@ -1567,7 +1570,7 @@ int32_t VulkanRTBase::handleAppInput(struct android_app* app, AInputEvent* event
 	return 0;
 }
 
-void VulkanRTBase::handleAppCommand(android_app * app, int32_t cmd)
+void VulkanRTBase::handleAppCommand(android_app* app, int32_t cmd)
 {
 	assert(app->userData != NULL);
 	VulkanRTBase* vulkanExample = reinterpret_cast<VulkanRTBase*>(app->userData);
@@ -1650,7 +1653,7 @@ void VulkanRTBase::windowDidResize()
 	resizing = false;
 }
 #elif defined(VK_USE_PLATFORM_DIRECTFB_EXT)
-IDirectFBSurface *VulkanRTBase::setupWindow()
+IDirectFBSurface* VulkanRTBase::setupWindow()
 {
 	DFBResult ret;
 	int posx = 0, posy = 0;
@@ -1742,7 +1745,7 @@ IDirectFBSurface *VulkanRTBase::setupWindow()
 	return surface;
 }
 
-void VulkanRTBase::handleEvent(const DFBWindowEvent *event)
+void VulkanRTBase::handleEvent(const DFBWindowEvent* event)
 {
 	switch (event->type)
 	{
@@ -1787,49 +1790,49 @@ void VulkanRTBase::handleEvent(const DFBWindowEvent *event)
 	case DWET_KEYDOWN:
 		switch (event->key_symbol)
 		{
-			case KEY_W:
-				camera.keys.up = true;
-				break;
-			case KEY_S:
-				camera.keys.down = true;
-				break;
-			case KEY_A:
-				camera.keys.left = true;
-				break;
-			case KEY_D:
-				camera.keys.right = true;
-				break;
-			case KEY_P:
-				paused = !paused;
-				break;
-			case KEY_F1:
-				UIOverlay.visible = !UIOverlay.visible;
-				UIOverlay.updated = true;
-				break;
-			default:
-				break;
+		case KEY_W:
+			camera.keys.up = true;
+			break;
+		case KEY_S:
+			camera.keys.down = true;
+			break;
+		case KEY_A:
+			camera.keys.left = true;
+			break;
+		case KEY_D:
+			camera.keys.right = true;
+			break;
+		case KEY_P:
+			paused = !paused;
+			break;
+		case KEY_F1:
+			UIOverlay.visible = !UIOverlay.visible;
+			UIOverlay.updated = true;
+			break;
+		default:
+			break;
 		}
 		break;
 	case DWET_KEYUP:
 		switch (event->key_symbol)
 		{
-			case KEY_W:
-				camera.keys.up = false;
-				break;
-			case KEY_S:
-				camera.keys.down = false;
-				break;
-			case KEY_A:
-				camera.keys.left = false;
-				break;
-			case KEY_D:
-				camera.keys.right = false;
-				break;
-			case KEY_ESCAPE:
-				quit = true;
-				break;
-			default:
-				break;
+		case KEY_W:
+			camera.keys.up = false;
+			break;
+		case KEY_S:
+			camera.keys.down = false;
+			break;
+		case KEY_A:
+			camera.keys.left = false;
+			break;
+		case KEY_D:
+			camera.keys.right = false;
+			break;
+		case KEY_ESCAPE:
+			quit = true;
+			break;
+		default:
+			break;
 		}
 		keyPressed(event->key_symbol);
 		break;
@@ -1843,53 +1846,53 @@ void VulkanRTBase::handleEvent(const DFBWindowEvent *event)
 	}
 }
 #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
-/*static*/void VulkanRTBase::registryGlobalCb(void *data,
-		wl_registry *registry, uint32_t name, const char *interface,
-		uint32_t version)
+/*static*/void VulkanRTBase::registryGlobalCb(void* data,
+	wl_registry* registry, uint32_t name, const char* interface,
+	uint32_t version)
 {
-	VulkanRTBase *self = reinterpret_cast<VulkanRTBase *>(data);
+	VulkanRTBase* self = reinterpret_cast<VulkanRTBase*>(data);
 	self->registryGlobal(registry, name, interface, version);
 }
 
-/*static*/void VulkanRTBase::seatCapabilitiesCb(void *data, wl_seat *seat,
-		uint32_t caps)
+/*static*/void VulkanRTBase::seatCapabilitiesCb(void* data, wl_seat* seat,
+	uint32_t caps)
 {
-	VulkanRTBase *self = reinterpret_cast<VulkanRTBase *>(data);
+	VulkanRTBase* self = reinterpret_cast<VulkanRTBase*>(data);
 	self->seatCapabilities(seat, caps);
 }
 
-/*static*/void VulkanRTBase::pointerEnterCb(void *data,
-		wl_pointer *pointer, uint32_t serial, wl_surface *surface,
-		wl_fixed_t sx, wl_fixed_t sy)
+/*static*/void VulkanRTBase::pointerEnterCb(void* data,
+	wl_pointer* pointer, uint32_t serial, wl_surface* surface,
+	wl_fixed_t sx, wl_fixed_t sy)
 {
 }
 
-/*static*/void VulkanRTBase::pointerLeaveCb(void *data,
-		wl_pointer *pointer, uint32_t serial, wl_surface *surface)
+/*static*/void VulkanRTBase::pointerLeaveCb(void* data,
+	wl_pointer* pointer, uint32_t serial, wl_surface* surface)
 {
 }
 
-/*static*/void VulkanRTBase::pointerMotionCb(void *data,
-		wl_pointer *pointer, uint32_t time, wl_fixed_t sx, wl_fixed_t sy)
+/*static*/void VulkanRTBase::pointerMotionCb(void* data,
+	wl_pointer* pointer, uint32_t time, wl_fixed_t sx, wl_fixed_t sy)
 {
-	VulkanRTBase *self = reinterpret_cast<VulkanRTBase *>(data);
+	VulkanRTBase* self = reinterpret_cast<VulkanRTBase*>(data);
 	self->pointerMotion(pointer, time, sx, sy);
 }
-void VulkanRTBase::pointerMotion(wl_pointer *pointer, uint32_t time, wl_fixed_t sx, wl_fixed_t sy)
+void VulkanRTBase::pointerMotion(wl_pointer* pointer, uint32_t time, wl_fixed_t sx, wl_fixed_t sy)
 {
 	handleMouseMove(wl_fixed_to_int(sx), wl_fixed_to_int(sy));
 }
 
-/*static*/void VulkanRTBase::pointerButtonCb(void *data,
-		wl_pointer *pointer, uint32_t serial, uint32_t time, uint32_t button,
-		uint32_t state)
+/*static*/void VulkanRTBase::pointerButtonCb(void* data,
+	wl_pointer* pointer, uint32_t serial, uint32_t time, uint32_t button,
+	uint32_t state)
 {
-	VulkanRTBase *self = reinterpret_cast<VulkanRTBase *>(data);
+	VulkanRTBase* self = reinterpret_cast<VulkanRTBase*>(data);
 	self->pointerButton(pointer, serial, time, button, state);
 }
 
-void VulkanRTBase::pointerButton(struct wl_pointer *pointer,
-		uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
+void VulkanRTBase::pointerButton(struct wl_pointer* pointer,
+	uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
 {
 	switch (button)
 	{
@@ -1907,16 +1910,16 @@ void VulkanRTBase::pointerButton(struct wl_pointer *pointer,
 	}
 }
 
-/*static*/void VulkanRTBase::pointerAxisCb(void *data,
-		wl_pointer *pointer, uint32_t time, uint32_t axis,
-		wl_fixed_t value)
+/*static*/void VulkanRTBase::pointerAxisCb(void* data,
+	wl_pointer* pointer, uint32_t time, uint32_t axis,
+	wl_fixed_t value)
 {
-	VulkanRTBase *self = reinterpret_cast<VulkanRTBase *>(data);
+	VulkanRTBase* self = reinterpret_cast<VulkanRTBase*>(data);
 	self->pointerAxis(pointer, time, axis, value);
 }
 
-void VulkanRTBase::pointerAxis(wl_pointer *pointer, uint32_t time,
-		uint32_t axis, wl_fixed_t value)
+void VulkanRTBase::pointerAxis(wl_pointer* pointer, uint32_t time,
+	uint32_t axis, wl_fixed_t value)
 {
 	double d = wl_fixed_to_double(value);
 	switch (axis)
@@ -1930,33 +1933,33 @@ void VulkanRTBase::pointerAxis(wl_pointer *pointer, uint32_t time,
 	}
 }
 
-/*static*/void VulkanRTBase::keyboardKeymapCb(void *data,
-		struct wl_keyboard *keyboard, uint32_t format, int fd, uint32_t size)
+/*static*/void VulkanRTBase::keyboardKeymapCb(void* data,
+	struct wl_keyboard* keyboard, uint32_t format, int fd, uint32_t size)
 {
 }
 
-/*static*/void VulkanRTBase::keyboardEnterCb(void *data,
-		struct wl_keyboard *keyboard, uint32_t serial,
-		struct wl_surface *surface, struct wl_array *keys)
+/*static*/void VulkanRTBase::keyboardEnterCb(void* data,
+	struct wl_keyboard* keyboard, uint32_t serial,
+	struct wl_surface* surface, struct wl_array* keys)
 {
 }
 
-/*static*/void VulkanRTBase::keyboardLeaveCb(void *data,
-		struct wl_keyboard *keyboard, uint32_t serial,
-		struct wl_surface *surface)
+/*static*/void VulkanRTBase::keyboardLeaveCb(void* data,
+	struct wl_keyboard* keyboard, uint32_t serial,
+	struct wl_surface* surface)
 {
 }
 
-/*static*/void VulkanRTBase::keyboardKeyCb(void *data,
-		struct wl_keyboard *keyboard, uint32_t serial, uint32_t time,
-		uint32_t key, uint32_t state)
+/*static*/void VulkanRTBase::keyboardKeyCb(void* data,
+	struct wl_keyboard* keyboard, uint32_t serial, uint32_t time,
+	uint32_t key, uint32_t state)
 {
-	VulkanRTBase *self = reinterpret_cast<VulkanRTBase *>(data);
+	VulkanRTBase* self = reinterpret_cast<VulkanRTBase*>(data);
 	self->keyboardKey(keyboard, serial, time, key, state);
 }
 
-void VulkanRTBase::keyboardKey(struct wl_keyboard *keyboard,
-		uint32_t serial, uint32_t time, uint32_t key, uint32_t state)
+void VulkanRTBase::keyboardKey(struct wl_keyboard* keyboard,
+	uint32_t serial, uint32_t time, uint32_t key, uint32_t state)
 {
 	switch (key)
 	{
@@ -1991,13 +1994,13 @@ void VulkanRTBase::keyboardKey(struct wl_keyboard *keyboard,
 		keyPressed(key);
 }
 
-/*static*/void VulkanRTBase::keyboardModifiersCb(void *data,
-		struct wl_keyboard *keyboard, uint32_t serial, uint32_t mods_depressed,
-		uint32_t mods_latched, uint32_t mods_locked, uint32_t group)
+/*static*/void VulkanRTBase::keyboardModifiersCb(void* data,
+	struct wl_keyboard* keyboard, uint32_t serial, uint32_t mods_depressed,
+	uint32_t mods_latched, uint32_t mods_locked, uint32_t group)
 {
 }
 
-void VulkanRTBase::seatCapabilities(wl_seat *seat, uint32_t caps)
+void VulkanRTBase::seatCapabilities(wl_seat* seat, uint32_t caps)
 {
 	if ((caps & WL_SEAT_CAPABILITY_POINTER) && !pointer)
 	{
@@ -2028,7 +2031,7 @@ void VulkanRTBase::seatCapabilities(wl_seat *seat, uint32_t caps)
 	}
 }
 
-static void xdg_wm_base_ping(void *data, struct xdg_wm_base *shell, uint32_t serial)
+static void xdg_wm_base_ping(void* data, struct xdg_wm_base* shell, uint32_t serial)
 {
 	xdg_wm_base_pong(shell, serial);
 }
@@ -2037,24 +2040,24 @@ static const struct xdg_wm_base_listener xdg_wm_base_listener = {
 	xdg_wm_base_ping,
 };
 
-void VulkanRTBase::registryGlobal(wl_registry *registry, uint32_t name,
-		const char *interface, uint32_t version)
+void VulkanRTBase::registryGlobal(wl_registry* registry, uint32_t name,
+	const char* interface, uint32_t version)
 {
 	if (strcmp(interface, "wl_compositor") == 0)
 	{
-		compositor = (wl_compositor *) wl_registry_bind(registry, name,
-				&wl_compositor_interface, 3);
+		compositor = (wl_compositor*)wl_registry_bind(registry, name,
+			&wl_compositor_interface, 3);
 	}
 	else if (strcmp(interface, "xdg_wm_base") == 0)
 	{
-		shell = (xdg_wm_base *) wl_registry_bind(registry, name,
-				&xdg_wm_base_interface, 1);
+		shell = (xdg_wm_base*)wl_registry_bind(registry, name,
+			&xdg_wm_base_interface, 1);
 		xdg_wm_base_add_listener(shell, &xdg_wm_base_listener, nullptr);
 	}
 	else if (strcmp(interface, "wl_seat") == 0)
 	{
-		seat = (wl_seat *) wl_registry_bind(registry, name, &wl_seat_interface,
-				1);
+		seat = (wl_seat*)wl_registry_bind(registry, name, &wl_seat_interface,
+			1);
 
 		static const struct wl_seat_listener seat_listener =
 		{ seatCapabilitiesCb, };
@@ -2062,8 +2065,8 @@ void VulkanRTBase::registryGlobal(wl_registry *registry, uint32_t name,
 	}
 }
 
-/*static*/void VulkanRTBase::registryGlobalRemoveCb(void *data,
-		struct wl_registry *registry, uint32_t name)
+/*static*/void VulkanRTBase::registryGlobalRemoveCb(void* data,
+	struct wl_registry* registry, uint32_t name)
 {
 }
 
@@ -2115,10 +2118,10 @@ void VulkanRTBase::setSize(int width, int height)
 }
 
 static void
-xdg_surface_handle_configure(void *data, struct xdg_surface *surface,
-			     uint32_t serial)
+xdg_surface_handle_configure(void* data, struct xdg_surface* surface,
+	uint32_t serial)
 {
-	VulkanRTBase *base = (VulkanRTBase *) data;
+	VulkanRTBase* base = (VulkanRTBase*)data;
 
 	xdg_surface_ack_configure(surface, serial);
 	base->configured = true;
@@ -2130,19 +2133,19 @@ static const struct xdg_surface_listener xdg_surface_listener = {
 
 
 static void
-xdg_toplevel_handle_configure(void *data, struct xdg_toplevel *toplevel,
-			      int32_t width, int32_t height,
-			      struct wl_array *states)
+xdg_toplevel_handle_configure(void* data, struct xdg_toplevel* toplevel,
+	int32_t width, int32_t height,
+	struct wl_array* states)
 {
-	VulkanRTBase *base = (VulkanRTBase *) data;
+	VulkanRTBase* base = (VulkanRTBase*)data;
 
 	base->setSize(width, height);
 }
 
 static void
-xdg_toplevel_handle_close(void *data, struct xdg_toplevel *xdg_toplevel)
+xdg_toplevel_handle_close(void* data, struct xdg_toplevel* xdg_toplevel)
 {
-	VulkanRTBase *base = (VulkanRTBase *) data;
+	VulkanRTBase* base = (VulkanRTBase*)data;
 
 	base->quit = true;
 }
@@ -2154,7 +2157,7 @@ static const struct xdg_toplevel_listener xdg_toplevel_listener = {
 };
 
 
-struct xdg_surface *VulkanRTBase::setupWindow()
+struct xdg_surface* VulkanRTBase::setupWindow()
 {
 	surface = wl_compositor_create_surface(compositor);
 	xdg_surface = xdg_wm_base_get_xdg_surface(shell, surface);
@@ -2171,7 +2174,7 @@ struct xdg_surface *VulkanRTBase::setupWindow()
 
 #elif defined(VK_USE_PLATFORM_XCB_KHR)
 
-static inline xcb_intern_atom_reply_t* intern_atom_helper(xcb_connection_t *conn, bool only_if_exists, const char *str)
+static inline xcb_intern_atom_reply_t* intern_atom_helper(xcb_connection_t* conn, bool only_if_exists, const char* str)
 {
 	xcb_intern_atom_cookie_t cookie = xcb_intern_atom(conn, only_if_exists, strlen(str), str);
 	return xcb_intern_atom_reply(conn, cookie, NULL);
@@ -2238,13 +2241,13 @@ xcb_window_t VulkanRTBase::setupWindow()
 
 	if (settings.fullscreen)
 	{
-		xcb_intern_atom_reply_t *atom_wm_state = intern_atom_helper(connection, false, "_NET_WM_STATE");
-		xcb_intern_atom_reply_t *atom_wm_fullscreen = intern_atom_helper(connection, false, "_NET_WM_STATE_FULLSCREEN");
+		xcb_intern_atom_reply_t* atom_wm_state = intern_atom_helper(connection, false, "_NET_WM_STATE");
+		xcb_intern_atom_reply_t* atom_wm_fullscreen = intern_atom_helper(connection, false, "_NET_WM_STATE_FULLSCREEN");
 		xcb_change_property(connection,
-				XCB_PROP_MODE_REPLACE,
-				window, atom_wm_state->atom,
-				XCB_ATOM_ATOM, 32, 1,
-				&(atom_wm_fullscreen->atom));
+			XCB_PROP_MODE_REPLACE,
+			window, atom_wm_state->atom,
+			XCB_ATOM_ATOM, 32, 1,
+			&(atom_wm_fullscreen->atom));
 		free(atom_wm_fullscreen);
 		free(atom_wm_state);
 	}
@@ -2257,7 +2260,7 @@ xcb_window_t VulkanRTBase::setupWindow()
 // Initialize XCB connection
 void VulkanRTBase::initxcbConnection()
 {
-	const xcb_setup_t *setup;
+	const xcb_setup_t* setup;
 	xcb_screen_iterator_t iter;
 	int scr;
 
@@ -2266,8 +2269,8 @@ void VulkanRTBase::initxcbConnection()
 	// check for failure. When finished, use xcb_disconnect() to close the
 	// connection and free the structure.
 	connection = xcb_connect(NULL, &scr);
-	assert( connection );
-	if( xcb_connection_has_error(connection) ) {
+	assert(connection);
+	if (xcb_connection_has_error(connection)) {
 		printf("Could not find a compatible Vulkan ICD!\n");
 		fflush(stdout);
 		exit(1);
@@ -2280,7 +2283,7 @@ void VulkanRTBase::initxcbConnection()
 	screen = iter.data;
 }
 
-void VulkanRTBase::handleEvent(const xcb_generic_event_t *event)
+void VulkanRTBase::handleEvent(const xcb_generic_event_t* event)
 {
 	switch (event->response_type & 0x7f)
 	{
@@ -2292,14 +2295,14 @@ void VulkanRTBase::handleEvent(const xcb_generic_event_t *event)
 		break;
 	case XCB_MOTION_NOTIFY:
 	{
-		xcb_motion_notify_event_t *motion = (xcb_motion_notify_event_t *)event;
+		xcb_motion_notify_event_t* motion = (xcb_motion_notify_event_t*)event;
 		handleMouseMove((int32_t)motion->event_x, (int32_t)motion->event_y);
 		break;
 	}
 	break;
 	case XCB_BUTTON_PRESS:
 	{
-		xcb_button_press_event_t *press = (xcb_button_press_event_t *)event;
+		xcb_button_press_event_t* press = (xcb_button_press_event_t*)event;
 		if (press->detail == XCB_BUTTON_INDEX_1)
 			mouseState.buttons.left = true;
 		if (press->detail == XCB_BUTTON_INDEX_2)
@@ -2310,7 +2313,7 @@ void VulkanRTBase::handleEvent(const xcb_generic_event_t *event)
 	break;
 	case XCB_BUTTON_RELEASE:
 	{
-		xcb_button_press_event_t *press = (xcb_button_press_event_t *)event;
+		xcb_button_press_event_t* press = (xcb_button_press_event_t*)event;
 		if (press->detail == XCB_BUTTON_INDEX_1)
 			mouseState.buttons.left = false;
 		if (press->detail == XCB_BUTTON_INDEX_2)
@@ -2321,51 +2324,51 @@ void VulkanRTBase::handleEvent(const xcb_generic_event_t *event)
 	break;
 	case XCB_KEY_PRESS:
 	{
-		const xcb_key_release_event_t *keyEvent = (const xcb_key_release_event_t *)event;
+		const xcb_key_release_event_t* keyEvent = (const xcb_key_release_event_t*)event;
 		switch (keyEvent->detail)
 		{
-			case KEY_W:
-				camera.keys.up = true;
-				break;
-			case KEY_S:
-				camera.keys.down = true;
-				break;
-			case KEY_A:
-				camera.keys.left = true;
-				break;
-			case KEY_D:
-				camera.keys.right = true;
-				break;
-			case KEY_P:
-				paused = !paused;
-				break;
-			case KEY_F1:
-				UIOverlay.visible = !UIOverlay.visible;
-				UIOverlay.updated = true;
-				break;
+		case KEY_W:
+			camera.keys.up = true;
+			break;
+		case KEY_S:
+			camera.keys.down = true;
+			break;
+		case KEY_A:
+			camera.keys.left = true;
+			break;
+		case KEY_D:
+			camera.keys.right = true;
+			break;
+		case KEY_P:
+			paused = !paused;
+			break;
+		case KEY_F1:
+			UIOverlay.visible = !UIOverlay.visible;
+			UIOverlay.updated = true;
+			break;
 		}
 	}
 	break;
 	case XCB_KEY_RELEASE:
 	{
-		const xcb_key_release_event_t *keyEvent = (const xcb_key_release_event_t *)event;
+		const xcb_key_release_event_t* keyEvent = (const xcb_key_release_event_t*)event;
 		switch (keyEvent->detail)
 		{
-			case KEY_W:
-				camera.keys.up = false;
-				break;
-			case KEY_S:
-				camera.keys.down = false;
-				break;
-			case KEY_A:
-				camera.keys.left = false;
-				break;
-			case KEY_D:
-				camera.keys.right = false;
-				break;
-			case KEY_ESCAPE:
-				quit = true;
-				break;
+		case KEY_W:
+			camera.keys.up = false;
+			break;
+		case KEY_S:
+			camera.keys.down = false;
+			break;
+		case KEY_A:
+			camera.keys.left = false;
+			break;
+		case KEY_D:
+			camera.keys.right = false;
+			break;
+		case KEY_ESCAPE:
+			quit = true;
+			break;
 		}
 		keyPressed(keyEvent->detail);
 	}
@@ -2375,15 +2378,15 @@ void VulkanRTBase::handleEvent(const xcb_generic_event_t *event)
 		break;
 	case XCB_CONFIGURE_NOTIFY:
 	{
-		const xcb_configure_notify_event_t *cfgEvent = (const xcb_configure_notify_event_t *)event;
+		const xcb_configure_notify_event_t* cfgEvent = (const xcb_configure_notify_event_t*)event;
 		if ((prepared) && ((cfgEvent->width != width) || (cfgEvent->height != height)))
 		{
-				destWidth = cfgEvent->width;
-				destHeight = cfgEvent->height;
-				if ((destWidth > 0) && (destHeight > 0))
-				{
-					windowResize();
-				}
+			destWidth = cfgEvent->width;
+			destHeight = cfgEvent->height;
+			if ((destWidth > 0) && (destHeight > 0))
+			{
+				windowResize();
+			}
 		}
 	}
 	break;
@@ -2414,175 +2417,182 @@ void VulkanRTBase::handleEvent()
 			break;
 		}
 		switch (val) {
-			case SCREEN_EVENT_KEYBOARD:
-				rc = screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_FLAGS, &keyflags);
-				if (rc) {
-					printf("Cannot get SCREEN_PROPERTY_FLAGS of the event! (%s)\n", strerror(errno));
-					fflush(stdout);
-					quit = true;
-					break;
-				}
-				rc = screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_SYM, &val);
-				if (rc) {
-					printf("Cannot get SCREEN_PROPERTY_SYM of the event! (%s)\n", strerror(errno));
-					fflush(stdout);
-					quit = true;
-					break;
-				}
-				if ((keyflags & KEY_SYM_VALID) == KEY_SYM_VALID) {
-					switch (val) {
-						case KEYCODE_ESCAPE:
-							quit = true;
-							break;
-						case KEYCODE_W:
-							if (keyflags & KEY_DOWN) {
-								camera.keys.up = true;
-							} else {
-								camera.keys.up = false;
-							}
-							break;
-						case KEYCODE_S:
-							if (keyflags & KEY_DOWN) {
-								camera.keys.down = true;
-							} else {
-								camera.keys.down = false;
-							}
-							break;
-						case KEYCODE_A:
-							if (keyflags & KEY_DOWN) {
-								camera.keys.left = true;
-							} else {
-								camera.keys.left = false;
-							}
-							break;
-						case KEYCODE_D:
-							if (keyflags & KEY_DOWN) {
-								camera.keys.right = true;
-							} else {
-								camera.keys.right = false;
-							}
-							break;
-						case KEYCODE_P:
-							paused = !paused;
-							break;
-						case KEYCODE_F1:
-							UIOverlay.visible = !UIOverlay.visible;
-							UIOverlay.updated = true;
-							break;
-						default:
-							break;
-					}
-
-					if ((keyflags & KEY_DOWN) == KEY_DOWN) {
-						if ((val >= 0x20) && (val <= 0xFF)) {
-							keyPressed(val);
-						}
-					}
-				}
+		case SCREEN_EVENT_KEYBOARD:
+			rc = screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_FLAGS, &keyflags);
+			if (rc) {
+				printf("Cannot get SCREEN_PROPERTY_FLAGS of the event! (%s)\n", strerror(errno));
+				fflush(stdout);
+				quit = true;
 				break;
-			case SCREEN_EVENT_PROPERTY:
-				rc = screen_get_event_property_pv(screen_event, SCREEN_PROPERTY_WINDOW, (void **)&win);
-				if (rc) {
-					printf("Cannot get SCREEN_PROPERTY_WINDOW of the event! (%s)\n", strerror(errno));
-					fflush(stdout);
-					quit = true;
-					break;
-				}
-				rc = screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_NAME, &val);
-				if (rc) {
-					printf("Cannot get SCREEN_PROPERTY_NAME of the event! (%s)\n", strerror(errno));
-					fflush(stdout);
-					quit = true;
-					break;
-				}
-				if (win == screen_window) {
-					switch(val) {
-						case SCREEN_PROPERTY_SIZE:
-							rc = screen_get_window_property_iv(win, SCREEN_PROPERTY_SIZE, size);
-							if (rc) {
-								printf("Cannot get SCREEN_PROPERTY_SIZE of the window in the event! (%s)\n", strerror(errno));
-								fflush(stdout);
-								quit = true;
-								break;
-							}
-							width = size[0];
-							height = size[1];
-							windowResize();
-							break;
-						default:
-							/* We are not interested in any other events for now */
-							break;
-						}
-				}
+			}
+			rc = screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_SYM, &val);
+			if (rc) {
+				printf("Cannot get SCREEN_PROPERTY_SYM of the event! (%s)\n", strerror(errno));
+				fflush(stdout);
+				quit = true;
 				break;
-			case SCREEN_EVENT_POINTER:
-				rc = screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_BUTTONS, &val);
-				if (rc) {
-					printf("Cannot get SCREEN_PROPERTY_BUTTONS of the event! (%s)\n", strerror(errno));
-					fflush(stdout);
+			}
+			if ((keyflags & KEY_SYM_VALID) == KEY_SYM_VALID) {
+				switch (val) {
+				case KEYCODE_ESCAPE:
 					quit = true;
 					break;
-				}
-				if ((mouse_buttons & SCREEN_LEFT_MOUSE_BUTTON) == 0) {
-					if ((val & SCREEN_LEFT_MOUSE_BUTTON) == SCREEN_LEFT_MOUSE_BUTTON) {
-						mouseState.buttons.left = true;
+				case KEYCODE_W:
+					if (keyflags & KEY_DOWN) {
+						camera.keys.up = true;
 					}
-				} else {
-					if ((val & SCREEN_LEFT_MOUSE_BUTTON) == 0) {
-						mouseState.buttons.left = false;
+					else {
+						camera.keys.up = false;
 					}
-				}
-				if ((mouse_buttons & SCREEN_RIGHT_MOUSE_BUTTON) == 0) {
-					if ((val & SCREEN_RIGHT_MOUSE_BUTTON) == SCREEN_RIGHT_MOUSE_BUTTON) {
-						mouseState.buttons.right = true;
-					}
-				} else {
-					if ((val & SCREEN_RIGHT_MOUSE_BUTTON) == 0) {
-						mouseState.buttons.right = false;
-					}
-				}
-				if ((mouse_buttons & SCREEN_MIDDLE_MOUSE_BUTTON) == 0) {
-					if ((val & SCREEN_MIDDLE_MOUSE_BUTTON) == SCREEN_MIDDLE_MOUSE_BUTTON) {
-						mouseState.buttons.middle = true;
-					}
-				} else {
-					if ((val & SCREEN_MIDDLE_MOUSE_BUTTON) == 0) {
-						mouseState.buttons.middle = false;
-					}
-				}
-				mouse_buttons = val;
-
-				rc = screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_MOUSE_WHEEL, &val);
-				if (rc) {
-					printf("Cannot get SCREEN_PROPERTY_MOUSE_WHEEL of the event! (%s)\n", strerror(errno));
-					fflush(stdout);
-					quit = true;
 					break;
-				}
-				if (val != 0) {
-					camera.translate(glm::vec3(0.0f, 0.0f, (float)val * 0.005f));
-					viewUpdated = true;
+				case KEYCODE_S:
+					if (keyflags & KEY_DOWN) {
+						camera.keys.down = true;
+					}
+					else {
+						camera.keys.down = false;
+					}
+					break;
+				case KEYCODE_A:
+					if (keyflags & KEY_DOWN) {
+						camera.keys.left = true;
+					}
+					else {
+						camera.keys.left = false;
+					}
+					break;
+				case KEYCODE_D:
+					if (keyflags & KEY_DOWN) {
+						camera.keys.right = true;
+					}
+					else {
+						camera.keys.right = false;
+					}
+					break;
+				case KEYCODE_P:
+					paused = !paused;
+					break;
+				case KEYCODE_F1:
+					UIOverlay.visible = !UIOverlay.visible;
+					UIOverlay.updated = true;
+					break;
+				default:
+					break;
 				}
 
-				rc = screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_POSITION, pos);
-				if (rc) {
-					printf("Cannot get SCREEN_PROPERTY_DISPLACEMENT of the event! (%s)\n", strerror(errno));
-					fflush(stdout);
-					quit = true;
+				if ((keyflags & KEY_DOWN) == KEY_DOWN) {
+					if ((val >= 0x20) && (val <= 0xFF)) {
+						keyPressed(val);
+					}
+				}
+			}
+			break;
+		case SCREEN_EVENT_PROPERTY:
+			rc = screen_get_event_property_pv(screen_event, SCREEN_PROPERTY_WINDOW, (void**)&win);
+			if (rc) {
+				printf("Cannot get SCREEN_PROPERTY_WINDOW of the event! (%s)\n", strerror(errno));
+				fflush(stdout);
+				quit = true;
+				break;
+			}
+			rc = screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_NAME, &val);
+			if (rc) {
+				printf("Cannot get SCREEN_PROPERTY_NAME of the event! (%s)\n", strerror(errno));
+				fflush(stdout);
+				quit = true;
+				break;
+			}
+			if (win == screen_window) {
+				switch (val) {
+				case SCREEN_PROPERTY_SIZE:
+					rc = screen_get_window_property_iv(win, SCREEN_PROPERTY_SIZE, size);
+					if (rc) {
+						printf("Cannot get SCREEN_PROPERTY_SIZE of the window in the event! (%s)\n", strerror(errno));
+						fflush(stdout);
+						quit = true;
+						break;
+					}
+					width = size[0];
+					height = size[1];
+					windowResize();
+					break;
+				default:
+					/* We are not interested in any other events for now */
 					break;
 				}
-				if ((pos[0] != 0) || (pos[1] != 0)) {
-					handleMouseMove(pos[0], pos[1]);
-				}
-				updateOverlay();
+			}
+			break;
+		case SCREEN_EVENT_POINTER:
+			rc = screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_BUTTONS, &val);
+			if (rc) {
+				printf("Cannot get SCREEN_PROPERTY_BUTTONS of the event! (%s)\n", strerror(errno));
+				fflush(stdout);
+				quit = true;
 				break;
+			}
+			if ((mouse_buttons & SCREEN_LEFT_MOUSE_BUTTON) == 0) {
+				if ((val & SCREEN_LEFT_MOUSE_BUTTON) == SCREEN_LEFT_MOUSE_BUTTON) {
+					mouseState.buttons.left = true;
+				}
+			}
+			else {
+				if ((val & SCREEN_LEFT_MOUSE_BUTTON) == 0) {
+					mouseState.buttons.left = false;
+				}
+			}
+			if ((mouse_buttons & SCREEN_RIGHT_MOUSE_BUTTON) == 0) {
+				if ((val & SCREEN_RIGHT_MOUSE_BUTTON) == SCREEN_RIGHT_MOUSE_BUTTON) {
+					mouseState.buttons.right = true;
+				}
+			}
+			else {
+				if ((val & SCREEN_RIGHT_MOUSE_BUTTON) == 0) {
+					mouseState.buttons.right = false;
+				}
+			}
+			if ((mouse_buttons & SCREEN_MIDDLE_MOUSE_BUTTON) == 0) {
+				if ((val & SCREEN_MIDDLE_MOUSE_BUTTON) == SCREEN_MIDDLE_MOUSE_BUTTON) {
+					mouseState.buttons.middle = true;
+				}
+			}
+			else {
+				if ((val & SCREEN_MIDDLE_MOUSE_BUTTON) == 0) {
+					mouseState.buttons.middle = false;
+				}
+			}
+			mouse_buttons = val;
+
+			rc = screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_MOUSE_WHEEL, &val);
+			if (rc) {
+				printf("Cannot get SCREEN_PROPERTY_MOUSE_WHEEL of the event! (%s)\n", strerror(errno));
+				fflush(stdout);
+				quit = true;
+				break;
+			}
+			if (val != 0) {
+				camera.translate(glm::vec3(0.0f, 0.0f, (float)val * 0.005f));
+				viewUpdated = true;
+			}
+
+			rc = screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_POSITION, pos);
+			if (rc) {
+				printf("Cannot get SCREEN_PROPERTY_DISPLACEMENT of the event! (%s)\n", strerror(errno));
+				fflush(stdout);
+				quit = true;
+				break;
+			}
+			if ((pos[0] != 0) || (pos[1] != 0)) {
+				handleMouseMove(pos[0], pos[1]);
+			}
+			updateOverlay();
+			break;
 		}
 	}
 }
 
 void VulkanRTBase::setupWindow()
 {
-	const char *idstr = name.c_str();
+	const char* idstr = name.c_str();
 	int size[2];
 	int usage = SCREEN_USAGE_VULKAN;
 	int rc;
@@ -2630,7 +2640,8 @@ void VulkanRTBase::setupWindow()
 		}
 		width = size[0];
 		height = size[1];
-	} else {
+	}
+	else {
 		size[0] = width;
 		size[1] = height;
 		rc = screen_set_window_property_iv(screen_window, SCREEN_PROPERTY_SIZE, size);
@@ -2676,7 +2687,7 @@ void VulkanRTBase::setupWindow()
 
 void VulkanRTBase::keyPressed(uint32_t) {}
 
-void VulkanRTBase::mouseMoved(double x, double y, bool & handled) {}
+void VulkanRTBase::mouseMoved(double x, double y, bool& handled) {}
 
 void VulkanRTBase::buildCommandBuffers() {}
 
@@ -2921,7 +2932,7 @@ void VulkanRTBase::handleMouseMove(int32_t x, int32_t y)
 	}
 
 	if (mouseState.buttons.left) {
-		camera.rotate(glm::vec3(dy * camera.rotationSpeed * 0.1f, -dx * camera.rotationSpeed*0.1f, 0.0f));
+		camera.rotate(glm::vec3(dy * camera.rotationSpeed * 0.1f, -dx * camera.rotationSpeed * 0.1f, 0.0f));
 		viewUpdated = true;
 	}
 	if (mouseState.buttons.right) {
@@ -2985,7 +2996,7 @@ void VulkanRTBase::setupSwapChain()
 	swapChain.create(&width, &height, settings.vsync, settings.fullscreen);
 }
 
-void VulkanRTBase::OnUpdateUIOverlay(vks::UIOverlay *overlay) {}
+void VulkanRTBase::OnUpdateUIOverlay(vks::UIOverlay* overlay) {}
 
 #if defined(_WIN32)
 void VulkanRTBase::OnHandleMessage(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {};

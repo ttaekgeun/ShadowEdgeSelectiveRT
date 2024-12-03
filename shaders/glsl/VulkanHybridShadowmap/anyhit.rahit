@@ -26,7 +26,7 @@ layout(binding = 3) uniform uniformBuffer
 	mat4 projInverse;
 	mat4 lightSpace;
 	uint frame;
-	vec4 lightPos[2];
+	vec4 lightPos[1];
 } ubo;
 layout(binding = 11) uniform sampler2D textures[];
 

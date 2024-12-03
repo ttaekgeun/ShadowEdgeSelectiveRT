@@ -1,6 +1,6 @@
 /*
 * Class wrapping access to the swap chain
-* 
+*
 * A swap chain is a collection of framebuffers used for rendering and presentation to the windowing system
 *
 * Copyright (C) 2016-2023 by Sascha Willems - www.saschawillems.de
@@ -10,7 +10,7 @@
 
 #include "VulkanSwapChain.h"
 
-/** @brief Creates the platform specific surface abstraction of the native platform window used for presentation */	
+/** @brief Creates the platform specific surface abstraction of the native platform window used for presentation */
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
 void VulkanSwapChain::initSurface(void* platformHandle, void* platformWindow)
 #elif defined(VK_USE_PLATFORM_ANDROID_KHR)
@@ -18,7 +18,7 @@ void VulkanSwapChain::initSurface(ANativeWindow* window)
 #elif defined(VK_USE_PLATFORM_DIRECTFB_EXT)
 void VulkanSwapChain::initSurface(IDirectFB* dfb, IDirectFBSurface* window)
 #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
-void VulkanSwapChain::initSurface(wl_display *display, wl_surface *window)
+void VulkanSwapChain::initSurface(wl_display* display, wl_surface* window)
 #elif defined(VK_USE_PLATFORM_XCB_KHR)
 void VulkanSwapChain::initSurface(xcb_connection_t* connection, xcb_window_t window)
 #elif (defined(VK_USE_PLATFORM_IOS_MVK) || defined(VK_USE_PLATFORM_MACOS_MVK))
@@ -81,7 +81,7 @@ void VulkanSwapChain::initSurface(screen_context_t screen_context, screen_window
 	VkHeadlessSurfaceCreateInfoEXT surfaceCreateInfo = {};
 	surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_HEADLESS_SURFACE_CREATE_INFO_EXT;
 	PFN_vkCreateHeadlessSurfaceEXT fpCreateHeadlessSurfaceEXT = (PFN_vkCreateHeadlessSurfaceEXT)vkGetInstanceProcAddr(instance, "vkCreateHeadlessSurfaceEXT");
-	if (!fpCreateHeadlessSurfaceEXT){
+	if (!fpCreateHeadlessSurfaceEXT) {
 		vks::tools::exitFatal("Could not fetch function pointer for the headless extension!", -1);
 	}
 	err = fpCreateHeadlessSurfaceEXT(instance, &surfaceCreateInfo, nullptr, &surface);
@@ -111,7 +111,7 @@ void VulkanSwapChain::initSurface(screen_context_t screen_context, screen_window
 	// Find a queue with present support
 	// Will be used to present the swap chain images to the windowing system
 	std::vector<VkBool32> supportsPresent(queueCount);
-	for (uint32_t i = 0; i < queueCount; i++) 
+	for (uint32_t i = 0; i < queueCount; i++)
 	{
 		vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &supportsPresent[i]);
 	}
@@ -120,16 +120,16 @@ void VulkanSwapChain::initSurface(screen_context_t screen_context, screen_window
 	// families, try to find one that supports both
 	uint32_t graphicsQueueNodeIndex = UINT32_MAX;
 	uint32_t presentQueueNodeIndex = UINT32_MAX;
-	for (uint32_t i = 0; i < queueCount; i++) 
+	for (uint32_t i = 0; i < queueCount; i++)
 	{
-		if ((queueProps[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0) 
+		if ((queueProps[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0)
 		{
-			if (graphicsQueueNodeIndex == UINT32_MAX) 
+			if (graphicsQueueNodeIndex == UINT32_MAX)
 			{
 				graphicsQueueNodeIndex = i;
 			}
 
-			if (supportsPresent[i] == VK_TRUE) 
+			if (supportsPresent[i] == VK_TRUE)
 			{
 				graphicsQueueNodeIndex = i;
 				presentQueueNodeIndex = i;
@@ -137,13 +137,13 @@ void VulkanSwapChain::initSurface(screen_context_t screen_context, screen_window
 			}
 		}
 	}
-	if (presentQueueNodeIndex == UINT32_MAX) 
-	{	
+	if (presentQueueNodeIndex == UINT32_MAX)
+	{
 		// If there's no queue that supports both present and graphics
 		// try to find a separate present queue
-		for (uint32_t i = 0; i < queueCount; ++i) 
+		for (uint32_t i = 0; i < queueCount; ++i)
 		{
-			if (supportsPresent[i] == VK_TRUE) 
+			if (supportsPresent[i] == VK_TRUE)
 			{
 				presentQueueNodeIndex = i;
 				break;
@@ -152,12 +152,12 @@ void VulkanSwapChain::initSurface(screen_context_t screen_context, screen_window
 	}
 
 	// Exit if either a graphics or a presenting queue hasn't been found
-	if (graphicsQueueNodeIndex == UINT32_MAX || presentQueueNodeIndex == UINT32_MAX) 
+	if (graphicsQueueNodeIndex == UINT32_MAX || presentQueueNodeIndex == UINT32_MAX)
 	{
 		vks::tools::exitFatal("Could not find a graphics and/or presenting queue!", -1);
 	}
 
-	if (graphicsQueueNodeIndex != presentQueueNodeIndex) 
+	if (graphicsQueueNodeIndex != presentQueueNodeIndex)
 	{
 		vks::tools::exitFatal("Separate graphics and presenting queues are not supported yet!", -1);
 	}
@@ -175,10 +175,10 @@ void VulkanSwapChain::initSurface(screen_context_t screen_context, screen_window
 	// We want to get a format that best suits our needs, so we try to get one from a set of preferred formats
 	// Initialize the format to the first one returned by the implementation in case we can't find one of the preffered formats
 	VkSurfaceFormatKHR selectedFormat = surfaceFormats[0];
-	std::vector<VkFormat> preferredImageFormats = { 
+	std::vector<VkFormat> preferredImageFormats = {
 		VK_FORMAT_B8G8R8A8_UNORM,
-		VK_FORMAT_R8G8B8A8_UNORM, 
-		VK_FORMAT_A8B8G8R8_UNORM_PACK32 
+		VK_FORMAT_R8G8B8A8_UNORM,
+		VK_FORMAT_A8B8G8R8_UNORM_PACK32
 	};
 
 	for (auto& availableFormat : surfaceFormats) {
@@ -194,7 +194,7 @@ void VulkanSwapChain::initSurface(screen_context_t screen_context, screen_window
 
 /**
 * Set instance, physical and logical device to use for the swapchain and get all required function pointers
-* 
+*
 * @param instance Vulkan instance to use
 * @param physicalDevice Physical device used to query properties and formats relevant to the swapchain
 * @param device Logical representation of the device to create the swapchain for
@@ -207,14 +207,14 @@ void VulkanSwapChain::connect(VkInstance instance, VkPhysicalDevice physicalDevi
 	this->device = device;
 }
 
-/** 
+/**
 * Create the swapchain and get its images with given width and height
-* 
+*
 * @param width Pointer to the width of the swapchain (may be adjusted to fit the requirements of the swapchain)
 * @param height Pointer to the height of the swapchain (may be adjusted to fit the requirements of the swapchain)
 * @param vsync (Optional) Can be used to force vsync-ed rendering (by using VK_PRESENT_MODE_FIFO_KHR as presentation mode)
 */
-void VulkanSwapChain::create(uint32_t *width, uint32_t *height, bool vsync, bool fullscreen)
+void VulkanSwapChain::create(uint32_t* width, uint32_t* height, bool vsync, bool fullscreen)
 {
 	// Store the current swap chain handle so we can use it later on to ease up recreation
 	VkSwapchainKHR oldSwapchain = swapChain;
@@ -352,8 +352,8 @@ void VulkanSwapChain::create(uint32_t *width, uint32_t *height, bool vsync, bool
 
 	// If an existing swap chain is re-created, destroy the old swap chain
 	// This also cleans up all the presentable images
-	if (oldSwapchain != VK_NULL_HANDLE) 
-	{ 
+	if (oldSwapchain != VK_NULL_HANDLE)
+	{
 		for (uint32_t i = 0; i < imageCount; i++)
 		{
 			vkDestroyImageView(device, buffers[i].view, nullptr);
@@ -396,7 +396,7 @@ void VulkanSwapChain::create(uint32_t *width, uint32_t *height, bool vsync, bool
 	}
 }
 
-/** 
+/**
 * Acquires the next image in the swap chain
 *
 * @param presentCompleteSemaphore (Optional) Semaphore that is signaled when the image is ready for use
@@ -406,7 +406,7 @@ void VulkanSwapChain::create(uint32_t *width, uint32_t *height, bool vsync, bool
 *
 * @return VkResult of the image acquisition
 */
-VkResult VulkanSwapChain::acquireNextImage(VkSemaphore presentCompleteSemaphore, uint32_t *imageIndex)
+VkResult VulkanSwapChain::acquireNextImage(VkSemaphore presentCompleteSemaphore, uint32_t* imageIndex)
 {
 	// By setting timeout to UINT64_MAX we will always wait until the next image has been acquired or an actual error is thrown
 	// With that we don't have to handle VK_NOT_READY
@@ -422,18 +422,18 @@ VkResult VulkanSwapChain::acquireNextImage(VkSemaphore presentCompleteSemaphore,
 *
 * @return VkResult of the queue presentation
 */
-VkResult VulkanSwapChain::queuePresent(VkQueue queue, uint32_t* imageIndex, VkSemaphore* waitSemaphore)
+VkResult VulkanSwapChain::queuePresent(VkQueue queue, uint32_t imageIndex, VkSemaphore waitSemaphore)
 {
 	VkPresentInfoKHR presentInfo = {};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.pNext = NULL;
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = &swapChain;
-	presentInfo.pImageIndices = imageIndex;
+	presentInfo.pImageIndices = &imageIndex;
 	// Check if a wait semaphore has been specified to wait for before presenting the image
-	if (*waitSemaphore != VK_NULL_HANDLE)
+	if (waitSemaphore != VK_NULL_HANDLE)
 	{
-		presentInfo.pWaitSemaphores = waitSemaphore;
+		presentInfo.pWaitSemaphores = &waitSemaphore;
 		presentInfo.waitSemaphoreCount = 1;
 	}
 	return vkQueuePresentKHR(queue, &presentInfo);
@@ -464,11 +464,11 @@ void VulkanSwapChain::cleanup()
 #if defined(_DIRECT2DISPLAY)
 /**
 * Create direct to display surface
-*/	
+*/
 void VulkanSwapChain::createDirect2DisplaySurface(uint32_t width, uint32_t height)
 {
 	uint32_t displayPropertyCount;
-		
+
 	// Get display property
 	vkGetPhysicalDeviceDisplayPropertiesKHR(physicalDevice, &displayPropertyCount, NULL);
 	VkDisplayPropertiesKHR* pDisplayProperties = new VkDisplayPropertiesKHR[displayPropertyCount];
@@ -485,7 +485,7 @@ void VulkanSwapChain::createDirect2DisplaySurface(uint32_t width, uint32_t heigh
 	VkDisplayModePropertiesKHR* pModeProperties;
 	bool foundMode = false;
 
-	for(uint32_t i = 0; i < displayPropertyCount;++i)
+	for (uint32_t i = 0; i < displayPropertyCount; ++i)
 	{
 		display = pDisplayProperties[i].display;
 		uint32_t modeCount;
@@ -508,10 +508,10 @@ void VulkanSwapChain::createDirect2DisplaySurface(uint32_t width, uint32_t heigh
 		{
 			break;
 		}
-		delete [] pModeProperties;
+		delete[] pModeProperties;
 	}
 
-	if(!foundMode)
+	if (!foundMode)
 	{
 		vks::tools::exitFatal("Can't find a display and a display mode!", -1);
 		return;
@@ -520,35 +520,35 @@ void VulkanSwapChain::createDirect2DisplaySurface(uint32_t width, uint32_t heigh
 	// Search for a best plane we can use
 	uint32_t bestPlaneIndex = UINT32_MAX;
 	VkDisplayKHR* pDisplays = NULL;
-	for(uint32_t i = 0; i < planePropertyCount; i++)
+	for (uint32_t i = 0; i < planePropertyCount; i++)
 	{
-		uint32_t planeIndex=i;
+		uint32_t planeIndex = i;
 		uint32_t displayCount;
 		vkGetDisplayPlaneSupportedDisplaysKHR(physicalDevice, planeIndex, &displayCount, NULL);
 		if (pDisplays)
 		{
-			delete [] pDisplays;
+			delete[] pDisplays;
 		}
 		pDisplays = new VkDisplayKHR[displayCount];
 		vkGetDisplayPlaneSupportedDisplaysKHR(physicalDevice, planeIndex, &displayCount, pDisplays);
 
 		// Find a display that matches the current plane
 		bestPlaneIndex = UINT32_MAX;
-		for(uint32_t j = 0; j < displayCount; j++)
+		for (uint32_t j = 0; j < displayCount; j++)
 		{
-			if(display == pDisplays[j])
+			if (display == pDisplays[j])
 			{
 				bestPlaneIndex = i;
 				break;
 			}
 		}
-		if(bestPlaneIndex != UINT32_MAX)
+		if (bestPlaneIndex != UINT32_MAX)
 		{
 			break;
 		}
 	}
 
-	if(bestPlaneIndex == UINT32_MAX)
+	if (bestPlaneIndex == UINT32_MAX)
 	{
 		vks::tools::exitFatal("Can't find a plane for displaying!", -1);
 		return;
@@ -589,7 +589,7 @@ void VulkanSwapChain::createDirect2DisplaySurface(uint32_t width, uint32_t heigh
 	surfaceInfo.imageExtent.height = height;
 
 	VkResult result = vkCreateDisplayPlaneSurfaceKHR(instance, &surfaceInfo, NULL, &surface);
-	if (result !=VK_SUCCESS) {
+	if (result != VK_SUCCESS) {
 		vks::tools::exitFatal("Failed to create surface!", result);
 	}
 

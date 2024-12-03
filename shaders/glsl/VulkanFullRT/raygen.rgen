@@ -27,7 +27,6 @@ layout(binding = 2, set = 0) uniform uniformBuffer
 {
 	mat4 viewInverse;
 	mat4 projInverse;
-	uint frame;
 	vec4 lightPos[1];
 } ubo;
 

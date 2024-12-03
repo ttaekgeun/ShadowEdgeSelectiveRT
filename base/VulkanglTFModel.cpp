@@ -587,10 +587,10 @@ VkVertexInputAttributeDescription vkglTF::Vertex::inputAttributeDescription(uint
 		return VkVertexInputAttributeDescription({ location, binding, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Vertex, joint0) });
 	case VertexComponent::Weight0:
 		return VkVertexInputAttributeDescription({ location, binding, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Vertex, weight0) });
-	//Y&Y added begin
+		//Y&Y added begin
 	case VertexComponent::ObjectID:
 		return VkVertexInputAttributeDescription({ location, binding, VK_FORMAT_R32_UINT, offsetof(Vertex, objectID) });
-	//Y&Y added end
+		//Y&Y added end
 	default:
 		return VkVertexInputAttributeDescription({});
 	}
@@ -1499,34 +1499,6 @@ void vkglTF::Model::drawNode(Node* node, VkCommandBuffer commandBuffer, uint32_t
 	}
 }
 
-void vkglTF::Model::drawNodeShadowmap(Node* node, VkCommandBuffer commandBuffer, uint32_t renderFlags, VkPipelineLayout pipelineLayout, uint32_t bindImageSet, VkDescriptorSet* descriptorSet)
-{
-	if (node->mesh) {
-		for (Primitive* primitive : node->mesh->primitives) {
-			bool skip = false;
-			const vkglTF::Material& material = primitive->material;
-			if (renderFlags & RenderFlags::RenderOpaqueNodes) {
-				skip = (material.alphaMode != Material::ALPHAMODE_OPAQUE);
-			}
-			if (renderFlags & RenderFlags::RenderAlphaMaskedNodes) {
-				skip = (material.alphaMode != Material::ALPHAMODE_MASK);
-			}
-			if (renderFlags & RenderFlags::RenderAlphaBlendedNodes) {
-				skip = (material.alphaMode != Material::ALPHAMODE_BLEND);
-			}
-			if (!skip) {
-				if (renderFlags & RenderFlags::BindImages) {
-					vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, bindImageSet, 1, descriptorSet, 0, nullptr);
-				}
-				vkCmdDrawIndexed(commandBuffer, primitive->indexCount, 1, primitive->firstIndex, 0, 0);
-			}
-		}
-	}
-	for (auto& child : node->children) {
-		drawNodeShadowmap(child, commandBuffer, renderFlags, pipelineLayout, bindImageSet, descriptorSet);
-	}
-}
-
 void vkglTF::Model::draw(VkCommandBuffer commandBuffer, uint32_t renderFlags, VkPipelineLayout pipelineLayout, uint32_t bindImageSet)
 {
 	if (!buffersBound) {
@@ -1536,18 +1508,6 @@ void vkglTF::Model::draw(VkCommandBuffer commandBuffer, uint32_t renderFlags, Vk
 	}
 	for (auto& node : nodes) {
 		drawNode(node, commandBuffer, renderFlags, pipelineLayout, bindImageSet);
-	}
-}
-
-void vkglTF::Model::drawShadowmap(VkCommandBuffer commandBuffer, uint32_t renderFlags, VkPipelineLayout pipelineLayout, uint32_t bindImageSet, VkDescriptorSet* descriptorSet)
-{
-	if (!buffersBound) {
-		const VkDeviceSize offsets[1] = { 0 };
-		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertices.buffer, offsets);
-		vkCmdBindIndexBuffer(commandBuffer, indices.buffer, 0, VK_INDEX_TYPE_UINT32);
-	}
-	for (auto& node : nodes) {
-		drawNodeShadowmap(node, commandBuffer, renderFlags, pipelineLayout, bindImageSet, descriptorSet);
 	}
 }
 
@@ -1901,7 +1861,7 @@ void vkglTF::Scene::loadFromFile(std::string filename, vks::VulkanDevice* device
 	};
 
 	for (int i = 0; i < MODEL_COUNT; i++)
-	//for (int i = 0; i < 2; i++)
+		//for (int i = 0; i < 2; i++)
 	{
 		SG_Instance* instance = new SG_Instance{};
 		instance->blasType = BLAS_TYPE_TRIANGLE_MESH;
@@ -1910,7 +1870,7 @@ void vkglTF::Scene::loadFromFile(std::string filename, vks::VulkanDevice* device
 		instance->instanceShaderBindingTableRecordOffset = instanceShaderBindingTableRecordOffset[i];
 		if (i == OBJECT_INDEX_CUTOUT)
 			instance->flag = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR | VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR;
-		else	
+		else
 			instance->flag = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR | VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
 		instances.push_back(*instance);
 

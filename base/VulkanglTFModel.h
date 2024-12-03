@@ -251,7 +251,7 @@ namespace vkglTF
 		glTF default vertex layout with easy Vulkan mapping functions
 	*/
 	enum class VertexComponent { Position, Normal, UV, Color, Tangent, Joint0, Weight0, ObjectID };
-	
+
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
 	typedef unsigned char byte;
 #endif
@@ -356,9 +356,7 @@ namespace vkglTF
 		void loadFromFile(std::string filename, vks::VulkanDevice* device, VkQueue transferQueue, uint32_t fileLoadingFlags = vkglTF::FileLoadingFlags::None, float scale = 1.0f);
 		void bindBuffers(VkCommandBuffer commandBuffer);
 		void drawNode(Node* node, VkCommandBuffer commandBuffer, uint32_t renderFlags = 0, VkPipelineLayout pipelineLayout = VK_NULL_HANDLE, uint32_t bindImageSet = 1);
-		void drawNodeShadowmap(Node* node, VkCommandBuffer commandBuffer, uint32_t renderFlags = 0, VkPipelineLayout pipelineLayout = VK_NULL_HANDLE, uint32_t bindImageSet = 1, VkDescriptorSet* descriptorSet = VK_NULL_HANDLE);
 		void draw(VkCommandBuffer commandBuffer, uint32_t renderFlags = 0, VkPipelineLayout pipelineLayout = VK_NULL_HANDLE, uint32_t bindImageSet = 1);
-		void drawShadowmap(VkCommandBuffer commandBuffer, uint32_t renderFlags = 0, VkPipelineLayout pipelineLayout = VK_NULL_HANDLE, uint32_t bindImageSet = 1, VkDescriptorSet* descriptorSet = VK_NULL_HANDLE);
 		void getNodeDimensions(Node* node, glm::vec3& min, glm::vec3& max);
 		void getSceneDimensions();
 		void updateAnimation(uint32_t index, float time);
@@ -449,7 +447,7 @@ namespace vkglTF
 	} BLASBuildInfo;
 
 	typedef struct SG_Instance {
-		SG_BLAS *blas;
+		SG_BLAS* blas;
 		SG_BLASType blasType;
 		VkTransformMatrixKHR transformMatrix;
 		VkGeometryInstanceFlagsKHR flag;

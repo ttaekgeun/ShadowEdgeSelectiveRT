@@ -119,55 +119,57 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\imgui\imgui.cpp" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\imgui\imgui_demo.cpp" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\imgui\imgui_draw.cpp" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\imgui\imgui_widgets.cpp" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\CommandLineParser.hpp" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\Define.h" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanAndroid.cpp" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanAndroid.h" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanBuffer.cpp" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanBuffer.h" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanDebug.cpp" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanDebug.h" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanDevice.cpp" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanDevice.h" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanFrameBuffer.hpp" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanInitializers.hpp" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanRTBase.cpp" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanRTBase.h" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanRTCommon.cpp" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanRTCommon.h" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanSwapChain.cpp" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanSwapChain.h" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanTexture.cpp" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanTexture.h" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanTools.cpp" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanTools.h" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanUIOverlay.cpp" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanUIOverlay.h" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanglTFModel.cpp" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\VulkanglTFModel.h" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\benchmark.hpp" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\camera.hpp" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\frustum.hpp" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\keycodes.hpp" />
-    <ClInclude Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\base\threadpool.hpp" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\ktx\lib\texture.c" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\ktx\lib\hashlist.c" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\ktx\lib\checkheader.c" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\ktx\lib\swap.c" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\ktx\lib\memstream.c" />
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\external\ktx\lib\filestream.c" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\build\ZERO_CHECK.vcxproj">
       <Project>{A04A23E1-0CEE-33BA-BF1C-2CB9F1C41D88}</Project>
       <Name>ZERO_CHECK</Name>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\base\benchmark.hpp" />
+    <ClInclude Include="..\..\base\camera.hpp" />
+    <ClInclude Include="..\..\base\CommandLineParser.hpp" />
+    <ClInclude Include="..\..\base\Define.h" />
+    <ClInclude Include="..\..\base\frustum.hpp" />
+    <ClInclude Include="..\..\base\keycodes.hpp" />
+    <ClInclude Include="..\..\base\threadpool.hpp" />
+    <ClInclude Include="..\..\base\VulkanAndroid.h" />
+    <ClInclude Include="..\..\base\VulkanBuffer.h" />
+    <ClInclude Include="..\..\base\VulkanDebug.h" />
+    <ClInclude Include="..\..\base\VulkanDevice.h" />
+    <ClInclude Include="..\..\base\VulkanFrameBuffer.hpp" />
+    <ClInclude Include="..\..\base\VulkanglTFModel.h" />
+    <ClInclude Include="..\..\base\VulkanInitializers.hpp" />
+    <ClInclude Include="..\..\base\VulkanRTBase.h" />
+    <ClInclude Include="..\..\base\VulkanRTCommon.h" />
+    <ClInclude Include="..\..\base\VulkanSwapChain.h" />
+    <ClInclude Include="..\..\base\VulkanTexture.h" />
+    <ClInclude Include="..\..\base\VulkanTools.h" />
+    <ClInclude Include="..\..\base\VulkanUIOverlay.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\base\VulkanAndroid.cpp" />
+    <ClCompile Include="..\..\base\VulkanBuffer.cpp" />
+    <ClCompile Include="..\..\base\VulkanDebug.cpp" />
+    <ClCompile Include="..\..\base\VulkanDevice.cpp" />
+    <ClCompile Include="..\..\base\VulkanglTFModel.cpp" />
+    <ClCompile Include="..\..\base\VulkanRTBase.cpp" />
+    <ClCompile Include="..\..\base\VulkanRTCommon.cpp" />
+    <ClCompile Include="..\..\base\VulkanSwapChain.cpp" />
+    <ClCompile Include="..\..\base\VulkanTexture.cpp" />
+    <ClCompile Include="..\..\base\VulkanTools.cpp" />
+    <ClCompile Include="..\..\base\VulkanUIOverlay.cpp" />
+    <ClCompile Include="..\..\external\imgui\imgui.cpp" />
+    <ClCompile Include="..\..\external\imgui\imgui_demo.cpp" />
+    <ClCompile Include="..\..\external\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\..\external\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="..\..\external\ktx\lib\checkheader.c" />
+    <ClCompile Include="..\..\external\ktx\lib\filestream.c" />
+    <ClCompile Include="..\..\external\ktx\lib\hashlist.c" />
+    <ClCompile Include="..\..\external\ktx\lib\memstream.c" />
+    <ClCompile Include="..\..\external\ktx\lib\swap.c" />
+    <ClCompile Include="..\..\external\ktx\lib\texture.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

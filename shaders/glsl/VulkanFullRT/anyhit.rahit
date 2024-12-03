@@ -24,8 +24,7 @@ layout(binding = 2, set = 0) uniform uniformBuffer
 {
 	mat4 viewInverse;
 	mat4 projInverse;
-	uint frame;
-	vec4 lightPos[2];
+	vec4 lightPos[1];
 } ubo;
 
 layout(binding = 3, set = 0) uniform sampler2D image;

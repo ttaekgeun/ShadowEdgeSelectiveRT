@@ -1,4 +1,4 @@
-/*
+ï»¿/*
 * Extended sample base class for ray tracing based samples
 *
 * Copyright (C) 2020-2024 by Sascha Willems - www.saschawillems.de
@@ -17,7 +17,7 @@ void VulkanRTCommon::setupRenderPass()
 
 	VkAttachmentLoadOp colorLoadOp{ VK_ATTACHMENT_LOAD_OP_LOAD };
 	VkImageLayout colorInitialLayout{ VK_IMAGE_LAYOUT_PRESENT_SRC_KHR };
-	
+
 	if (rayQueryOnly) {
 		// For samples that use ray queries with rasterization, we need to use a setup similar to the non-ray tracing samples
 		colorLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -140,13 +140,6 @@ void VulkanRTCommon::enableExtensions()
 
 	// Required by VK_KHR_spirv_1_4
 	enabledDeviceExtensions.push_back(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
-
-	// External Memory
-	enabledDeviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
-	enabledDeviceExtensions.push_back(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME);
-	enabledDeviceExtensions.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
-	enabledDeviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
-	enabledDeviceExtensions.push_back(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
 }
 
 VulkanRTCommon::ScratchBuffer VulkanRTCommon::createScratchBuffer(VkDeviceSize size)
@@ -331,14 +324,14 @@ VkStridedDeviceAddressRegionKHR VulkanRTCommon::getSbtEntryStridedDeviceAddressR
 	return stridedDeviceAddressRegionKHR;
 }
 
-// createShaderBindingTable(shaderBindingTables.raygen, 1); ÀÌ·±½ÄÀ¸·Î È£Ãâ
+// createShaderBindingTable(shaderBindingTables.raygen, 1); ï¿½Ì·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ È£ï¿½ï¿½
 void VulkanRTCommon::createShaderBindingTable(ShaderBindingTable& shaderBindingTable, uint32_t handleCount)
 {
 	// Create buffer to hold all shader handles for the SBT
 	VK_CHECK_RESULT(vulkanDevice->createBuffer(
-		VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, 
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-		&shaderBindingTable, 
+		VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		&shaderBindingTable,
 		rayTracingPipelineProperties.shaderGroupHandleSize * handleCount));
 	// Get the strided address to be used when dispatching the rays
 	shaderBindingTable.stridedDeviceAddressRegion = getSbtEntryStridedDeviceAddressRegion(shaderBindingTable.buffer, handleCount);

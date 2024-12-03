@@ -36,7 +36,6 @@ layout(binding = 2, set = 0) uniform uniformBuffer
 {
 	mat4 viewInverse;
 	mat4 projInverse;
-	uint frame;
 	vec4 lightPos[1];
 } ubo;
 
@@ -153,12 +152,12 @@ void main()
 
 		float tmax = length(ubo.lightPos[i].xyz - origin);
 
-#define USE_RAY_QUERY
+//#define USE_RAY_QUERY
 		shadowed = false;
 		if (shadowRayOn) {
 #ifndef USE_RAY_QUERY
 			shadowed = true;  
-			traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 0, 0, 1, origin, SHADOW_RAY_TMIN, rayDirection, tmax, 2);
+			traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 1, 0, 1, origin, SHADOW_RAY_TMIN, rayDirection, tmax, 2);
 #else
 			rayQueryEXT rayQuery;
 			rayQueryInitializeEXT(rayQuery, topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT, 

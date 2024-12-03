@@ -15,30 +15,31 @@
 #include <cuda_runtime_api.h>
 #define DIR_PATH "VulkanHybridShadowmap/"
 
+#define CUDA_CALL(x) {			\
+	const cudaError_t a = (x);	\
+	if (a != cudaSuccess)		\
+	{							\
+		printf("\nCuda Error: %s (err_num=%d) at line:%d\n", cudaGetErrorString(a), a, __LINE__); \
+		cudaDeviceReset();		\
+		assert(0);				\
+	}							\
+}					
+
 class VulkanHybridShadowmap : public VulkanRTCommon
 {
 public:
 
-	//shyun added begin
-#if ASSET < 6
-	// Keep depth range as small as possible
-	// for better shadow map precision
+#if ASSET == 0
 	float zNear = 1.0f;
 	float zFar = 400.0f;
 
 	float lightFOV = 45.0f;
-#elif ASSET == 6
-	float zNear = 0.1f;
-	float zFar = 100.0f;
+#elif ASSET == 1
+	float zNear = 1.0f;
+	float zFar = 400.0f;
 
-	float lightFOV = 90.0f;
-#elif ASSET == 7
-	float zNear = 0.1f;
-	float zFar = 100.0f;
-
-	float lightFOV = 90.0f;
+	float lightFOV = 45.0f;
 #endif
-	//shyun added begin
 
 	struct UniformDataOffscreen {
 		glm::mat4 modelMatrix;
@@ -49,18 +50,14 @@ public:
 	struct UniformDataComposition {
 		alignas(16) glm::mat4 viewInverse;
 		alignas(16) glm::mat4 projInverse;
-		//shyun added begin
 		alignas(16) glm::mat4 depthBiasMVP;
-		//shyun added end
 		alignas(4) uint32_t frame { 0 };
-		alignas(16) glm::vec4 lightPos[2];
+		alignas(16) glm::vec4 lightPos[1];
 	} uniformDataComposition;
 
 	struct UniformDataShadowmap {
-		//shyun added begin
 		glm::mat4 depthMVP;
 	} uniformDataShadowmap;
-	//shyun added end
 
 	struct {
 		vks::Buffer shadowmap{ VK_NULL_HANDLE };
@@ -180,24 +177,26 @@ public:
 
 	VkPhysicalDeviceDescriptorIndexingFeaturesEXT physicalDeviceDescriptorIndexingFeatures{};
 
-	struct TextureMemory {
-		VkDeviceMemory m_textureMemory;
+
+	PFN_vkGetMemoryWin32HandleKHR fpGetMemoryWin32HandleKHR;
+	PFN_vkGetSemaphoreWin32HandleKHR fpGetSemaphoreWin32HandleKHR;
+
+	struct ExternalMemoryObject {
+		cudaStream_t m_stream;
+		VkDeviceMemory m_vulkanMemory;
+		VkSemaphore m_vkTimelineSemaphore;
 		cudaExternalMemory_t m_cudaMemory;
-		cudaExternalSemaphore_t m_cudaWaitSemaphore, m_cudaSignalSemaphore,
-			m_cudaTimelineSemaphore;
-	} shadowMapMemory;
+		cudaExternalSemaphore_t m_cudaTimelineSemaphore;
+	} externalMemoryObject;
 
 	VulkanHybridShadowmap() : VulkanRTCommon()
 	{
 		title = "Sogang Univ - Vulkan Hybrid with Shadow mapping";
 		camera.type = Camera::CameraType::SG_camera;
 		camera.movementSpeed = 5.0f;
-#ifndef __ANDROID__
-		camera.rotationSpeed = 0.25f;
-#endif
 		camera.setPerspective(60.0f, (float)width / (float)height, 0.1f, 5000.0f);
 
-#if ASSET < 6
+#if ASSET == 0
 #if VIEW == 0
 		camera.setTranslation(glm::vec3(1.146842, 2.282518, 1.067378));
 		camera.setRotation(glm::vec3(-22.524939, 58.374725, 0.000000));
@@ -208,31 +207,18 @@ public:
 		camera.setTranslation(glm::vec3(4.291043, 4.683933, -1.352913));
 		camera.setRotation(glm::vec3(-20.874960, 106.026215, 0.000000));
 #endif
-#elif ASSET == 6
+#elif ASSET == 1
 #if VIEW == 0
-		camera.setTranslation(glm::vec3(-2.039184, -2.108208, 13.222129));
-		camera.setRotation(glm::vec3(9.474999, 346.226501, 0.000000));
+		camera.setTranslation(glm::vec3(1.146842, 2.282518, 1.067378));
+		camera.setRotation(glm::vec3(-22.524939, 58.374725, 0.000000));
 #elif VIEW == 1
-		camera.setTranslation(glm::vec3(3.786976, -1.408663, -4.825589));
-		camera.setRotation(glm::vec3(2.899944, 504.574402, 0.000000));
+		camera.setTranslation(glm::vec3(-6.497121, 1.637290, -1.421643));
+		camera.setRotation(glm::vec3(10.925017, -102.249245, 0.000000));
 #elif VIEW == 2
-		camera.setTranslation(glm::vec3(-4.241950, 2.714610, -3.181164));
-		camera.setRotation(glm::vec3(-41.275059, 595.162048, 0.000000));
-#endif
-#elif ASSET == 7
-#if VIEW == 0
-		camera.setTranslation(glm::vec3(1.151980, 0.971871, 1.761554));
-		camera.setRotation(glm::vec3(-14.949973, 393.002319, 0.000000));
-#elif VIEW == 1
-		camera.setTranslation(glm::vec3(-1.495003, 1.402008, 1.792632));
-		camera.setRotation(glm::vec3(-24.149887, 324.800903, 0.000000));
-#elif VIEW == 2
-		camera.setTranslation(glm::vec3(0.003964, 1.457728, -2.351941));
-		camera.setRotation(glm::vec3(-19.874851, 180.675659, 0.000000));
+		camera.setTranslation(glm::vec3(4.291043, 4.683933, -1.352913));
+		camera.setRotation(glm::vec3(-20.874960, 106.026215, 0.000000));
 #endif
 #endif
-
-
 		enableExtensions();
 
 		// Buffer device address requires the 64-bit integer feature to be enabled
@@ -240,6 +226,17 @@ public:
 
 		enabledDeviceExtensions.push_back(VK_KHR_MAINTENANCE3_EXTENSION_NAME);
 		enabledDeviceExtensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+
+		// External Memory Extensions (Device)
+		enabledDeviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
+		enabledDeviceExtensions.push_back(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME);
+		enabledDeviceExtensions.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
+		enabledDeviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
+		enabledDeviceExtensions.push_back(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
+
+		// External Memory Extensions (Instance)
+		supportedInstanceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME);
+		supportedInstanceExtensions.push_back(VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME);
 	}
 
 	~VulkanHybridShadowmap()
@@ -294,6 +291,7 @@ public:
 			vkDestroyDescriptorSetLayout(device, descriptorSetLayouts.composition, nullptr);
 
 			vkFreeCommandBuffers(device, cmdPool, static_cast<uint32_t>(shadowmapCmdBuffers.size()), shadowmapCmdBuffers.data());
+			vkFreeCommandBuffers(device, cmdPool, static_cast<uint32_t>(geometryCmdBuffers.size()), geometryCmdBuffers.data());
 
 			// Uniform buffers
 			uniformBuffers.shadowmap.destroy();
@@ -305,6 +303,11 @@ public:
 
 			vkDestroySemaphore(device, shadowmapSemaphore, nullptr);
 			vkDestroySemaphore(device, offscreenSemaphore, nullptr);
+
+			if (externalMemoryObject.m_vkTimelineSemaphore != VK_NULL_HANDLE) {
+				CUDA_CALL(cudaDestroyExternalSemaphore(externalMemoryObject.m_cudaTimelineSemaphore));
+				vkDestroySemaphore(device, externalMemoryObject.m_vkTimelineSemaphore, nullptr);
+			}
 
 			deleteAccelerationStructure(bottomLevelAS);
 			deleteAccelerationStructure(topLevelAS);
@@ -341,6 +344,169 @@ public:
 		deviceCreatepNextChain = &physicalDeviceDescriptorIndexingFeatures;
 
 		enabledFeatures.samplerAnisotropy = VK_TRUE;
+	}
+
+	VkExternalMemoryHandleTypeFlagBits getDefaultMemHandleType() {
+		return IsWindows8Point1OrGreater()
+			? VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT
+			: VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT;
+	}
+
+	VkExternalSemaphoreHandleTypeFlagBits getDefaultSemaphoreHandleType() {
+		return IsWindows8OrGreater()
+			? VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT
+			: VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT;
+	}
+
+	void* getMemHandle(VkDeviceMemory memory, VkExternalMemoryHandleTypeFlagBits handleType) {
+		HANDLE handle = 0;
+
+		VkMemoryGetWin32HandleInfoKHR vkMemoryGetWin32HandleInfoKHR = {};
+		vkMemoryGetWin32HandleInfoKHR.sType =
+			VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR;
+		vkMemoryGetWin32HandleInfoKHR.pNext = NULL;
+		vkMemoryGetWin32HandleInfoKHR.memory = memory;
+		vkMemoryGetWin32HandleInfoKHR.handleType = handleType;
+
+		PFN_vkGetMemoryWin32HandleKHR fpGetMemoryWin32HandleKHR;
+		fpGetMemoryWin32HandleKHR =
+			(PFN_vkGetMemoryWin32HandleKHR)vkGetDeviceProcAddr(
+				device, "vkGetMemoryWin32HandleKHR");
+		if (!fpGetMemoryWin32HandleKHR) {
+			throw std::runtime_error("Failed to retrieve vkGetMemoryWin32HandleKHR!");
+		}
+		if (fpGetMemoryWin32HandleKHR(device, &vkMemoryGetWin32HandleInfoKHR,
+			&handle) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to retrieve handle for buffer!");
+		}
+		return (void*)handle;
+	}
+
+	void importCudaExternalMemory(void** cudaPtr, cudaExternalMemory_t& cudaMem,
+		VkDeviceMemory& vkMem, VkDeviceSize size,
+		VkExternalMemoryHandleTypeFlagBits handleType) {
+		cudaExternalMemoryHandleDesc externalMemoryHandleDesc = {};
+
+		if (handleType & VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT) {
+			externalMemoryHandleDesc.type = cudaExternalMemoryHandleTypeOpaqueWin32;
+		}
+		else if (handleType &
+			VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT) {
+			externalMemoryHandleDesc.type =
+				cudaExternalMemoryHandleTypeOpaqueWin32Kmt;
+		}
+		else if (handleType & VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT) {
+			externalMemoryHandleDesc.type = cudaExternalMemoryHandleTypeOpaqueFd;
+		}
+		else {
+			throw std::runtime_error("Unknown handle type requested!");
+		}
+
+		externalMemoryHandleDesc.size = size;
+
+#ifdef _WIN64
+		externalMemoryHandleDesc.handle.win32.handle =
+			(HANDLE)getMemHandle(vkMem, handleType);
+#else
+		externalMemoryHandleDesc.handle.fd =
+			(int)(uintptr_t)getMemHandle(vkMem, handleType);
+#endif
+
+		CUDA_CALL(cudaImportExternalMemory(&cudaMem, &externalMemoryHandleDesc));
+
+		cudaExternalMemoryBufferDesc externalMemBufferDesc = {};
+		externalMemBufferDesc.offset = 0;
+		externalMemBufferDesc.size = size;
+		externalMemBufferDesc.flags = 0;
+
+		CUDA_CALL(cudaExternalMemoryGetMappedBuffer(cudaPtr, cudaMem, &externalMemBufferDesc));
+	}
+
+	void* getSemaphoreHandle(VkSemaphore semaphore, VkExternalSemaphoreHandleTypeFlagBits handleType) {
+		HANDLE handle;
+
+		VkSemaphoreGetWin32HandleInfoKHR semaphoreGetWin32HandleInfoKHR = {};
+		semaphoreGetWin32HandleInfoKHR.sType =
+			VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR;
+		semaphoreGetWin32HandleInfoKHR.pNext = NULL;
+		semaphoreGetWin32HandleInfoKHR.semaphore = semaphore;
+		semaphoreGetWin32HandleInfoKHR.handleType = handleType;
+
+		PFN_vkGetSemaphoreWin32HandleKHR fpGetSemaphoreWin32HandleKHR;
+		fpGetSemaphoreWin32HandleKHR =
+			(PFN_vkGetSemaphoreWin32HandleKHR)vkGetDeviceProcAddr(
+				device, "vkGetSemaphoreWin32HandleKHR");
+		if (!fpGetSemaphoreWin32HandleKHR) {
+			throw std::runtime_error("Failed to retrieve vkGetMemoryWin32HandleKHR!");
+		}
+		if (fpGetSemaphoreWin32HandleKHR(device, &semaphoreGetWin32HandleInfoKHR,
+			&handle) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to retrieve handle for buffer!");
+		}
+
+		return (void*)handle;
+	}
+
+	void importCudaExternalSemaphore(cudaExternalSemaphore_t& cudaSem, VkSemaphore& vkSem, VkExternalSemaphoreHandleTypeFlagBits handleType)
+	{
+		cudaExternalSemaphoreHandleDesc externalSemaphoreHandleDesc = {};
+
+		if (handleType & VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT) {
+			externalSemaphoreHandleDesc.type =
+				cudaExternalSemaphoreHandleTypeTimelineSemaphoreWin32;
+		}
+		else if (handleType &
+			VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT) {
+			externalSemaphoreHandleDesc.type =
+				cudaExternalSemaphoreHandleTypeTimelineSemaphoreWin32;
+		}
+		else if (handleType & VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT) {
+			externalSemaphoreHandleDesc.type =
+				cudaExternalSemaphoreHandleTypeTimelineSemaphoreFd;
+		}
+		else {
+			throw std::runtime_error("Unknown handle type requested!");
+		}
+
+#ifdef _WIN64
+		externalSemaphoreHandleDesc.handle.win32.handle =
+			(HANDLE)getSemaphoreHandle(vkSem, handleType);
+#else
+		externalSemaphoreHandleDesc.handle.fd =
+			(int)(uintptr_t)getSemaphoreHandle(vkSem, handleType);
+#endif
+
+		externalSemaphoreHandleDesc.flags = 0;
+
+		CUDA_CALL(cudaImportExternalSemaphore(&cudaSem, &externalSemaphoreHandleDesc));
+	}
+
+	HANDLE getVkImageMemHandle(VkExternalMemoryHandleTypeFlagsKHR externalMemoryHandleType, VkDeviceMemory deviceMemory) {
+		HANDLE handle;
+
+		VkMemoryGetWin32HandleInfoKHR vkMemoryGetWin32HandleInfoKHR = {};
+		vkMemoryGetWin32HandleInfoKHR.sType =
+			VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR;
+		vkMemoryGetWin32HandleInfoKHR.pNext = NULL;
+		vkMemoryGetWin32HandleInfoKHR.memory = deviceMemory;
+		vkMemoryGetWin32HandleInfoKHR.handleType = (VkExternalMemoryHandleTypeFlagBitsKHR)externalMemoryHandleType;
+
+		fpGetMemoryWin32HandleKHR(device, &vkMemoryGetWin32HandleInfoKHR, &handle);
+		return handle;
+	}
+	HANDLE getVkSemaphoreHandle(VkExternalSemaphoreHandleTypeFlagBitsKHR externalSemaphoreHandleType, VkSemaphore& semVkCuda) {
+		HANDLE handle;
+
+		VkSemaphoreGetWin32HandleInfoKHR vulkanSemaphoreGetWin32HandleInfoKHR = {};
+		vulkanSemaphoreGetWin32HandleInfoKHR.sType =
+			VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR;
+		vulkanSemaphoreGetWin32HandleInfoKHR.pNext = NULL;
+		vulkanSemaphoreGetWin32HandleInfoKHR.semaphore = semVkCuda;
+		vulkanSemaphoreGetWin32HandleInfoKHR.handleType = externalSemaphoreHandleType;
+
+		fpGetSemaphoreWin32HandleKHR(device, &vulkanSemaphoreGetWin32HandleInfoKHR, &handle);
+
+		return handle;
 	}
 
 	// Create a frame buffer attachment
@@ -732,53 +898,6 @@ public:
 
 				vkCmdEndRenderPass(shadowmapCmdBuffers[i]);
 			}
-
-			/*
-				Note: Explicit synchronization is not required between the render pass, as this is done implicit via sub pass dependencies
-			*/
-
-			/*
-				Second pass: Scene rendering with applied shadow map
-			*/
-			/*
-			{
-				clearValues[0].color = defaultClearColor;
-				clearValues[1].depthStencil = { 1.0f, 0 };
-
-				VkRenderPassBeginInfo renderPassBeginInfo = vks::initializers::renderPassBeginInfo();
-				renderPassBeginInfo.renderPass = renderPass;
-				renderPassBeginInfo.framebuffer = frameBuffers[i];
-				renderPassBeginInfo.renderArea.extent.width = width;
-				renderPassBeginInfo.renderArea.extent.height = height;
-				renderPassBeginInfo.clearValueCount = 2;
-				renderPassBeginInfo.pClearValues = clearValues;
-
-				vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-				viewport = vks::initializers::viewport((float)width, (float)height, 0.0f, 1.0f);
-				vkCmdSetViewport(drawCmdBuffers[i], 0, 1, &viewport);
-
-				scissor = vks::initializers::rect2D(width, height, 0, 0);
-				vkCmdSetScissor(drawCmdBuffers[i], 0, 1, &scissor);
-
-				// Visualize shadow map
-				if (displayShadowMap) {
-					vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets.debug, 0, nullptr);
-					vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.debug);
-					vkCmdDraw(drawCmdBuffers[i], 3, 1, 0, 0);
-				}
-				else {
-					// Render the shadows scene
-					vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets.scene, 0, nullptr);
-					vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, (filterPCF) ? pipelines.sceneShadowPCF : pipelines.sceneShadow);
-					scenes[sceneIndex].draw(drawCmdBuffers[i]);
-				}
-
-				drawUI(drawCmdBuffers[i]);
-
-				vkCmdEndRenderPass(drawCmdBuffers[i]);
-			}
-			*/
 
 			VK_CHECK_RESULT(vkEndCommandBuffer(shadowmapCmdBuffers[i]));
 		}
@@ -1431,7 +1550,6 @@ public:
 		std::vector<VkDescriptorPoolSize> poolSizes = {
 			// [Pass 0]
 			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1),
-			//vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1),
 
 			// [Pass 1]
 			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uboCount),
@@ -1454,10 +1572,7 @@ public:
 
 		// [Pass 0] 
 		setLayoutBindings = {
-			// Binding 0 : [shadowmap.vert] 
-			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0),
-			// Binding 1 : [shadowmap.frag]
-			//vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1)
+			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0)
 		};
 		descriptorSetLayoutCI = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCI, nullptr, &descriptorSetLayouts.shadowmap));
@@ -1465,16 +1580,9 @@ public:
 		VkDescriptorSetAllocateInfo allocInfo = vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayouts.shadowmap, 1);
 		VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &descriptorSets.shadowmap));
 
-		VkDescriptorImageInfo shadowMapDescriptor =
-			vks::initializers::descriptorImageInfo(
-				shadowmapFrameBuf.depthSampler,
-				shadowmapFrameBuf.depth.view,
-				VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
-
 		std::vector<VkWriteDescriptorSet> writeDescriptorSets;
 		writeDescriptorSets = {
-			vks::initializers::writeDescriptorSet(descriptorSets.shadowmap, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &uniformBuffers.shadowmap.descriptor),
-			//vks::initializers::writeDescriptorSet(descriptorSets.shadowmap, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &shadowMapDescriptor)
+			vks::initializers::writeDescriptorSet(descriptorSets.shadowmap, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &uniformBuffers.shadowmap.descriptor)
 		};
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, NULL);
 
@@ -1654,12 +1762,11 @@ public:
 		writeDescriptorSets.push_back(vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 9, &cubeMapDescriptor));
 
 		// Binding 10 : shadow map
-		//VkDescriptorImageInfo shadowMapDescriptor =
-		//	vks::initializers::descriptorImageInfo(
-		//		shadowmapFrameBuf.depthSampler,
-		//		shadowmapFrameBuf.depth.view,
-		//		VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
-		writeDescriptorSets.push_back(vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10, &shadowMapDescriptor));
+		VkDescriptorImageInfo shadowMapDescriptor =
+			vks::initializers::descriptorImageInfo(
+				shadowmapFrameBuf.depthSampler,
+				shadowmapFrameBuf.depth.view,
+				VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
 
 		// Binding 11: All images used by the glTF model
 		VkWriteDescriptorSet writeDescriptorImgArray{};
@@ -1942,18 +2049,13 @@ public:
 		// Once enough frames with random ray directions have been accumulated, it looks like proper transparency
 		uniformDataComposition.frame++;
 
-#if ASSET < 6
+#if ASSET == 0
 		uniformDataComposition.lightPos[0] = glm::vec4(0.0f + cos(glm::radians(timer * 360.0f)) * 50.0f,
 			100.0f, 0.0f + sin(glm::radians(timer * 360.0f)) * 15.0f, 1.0f);
-#elif ASSET == 6
+		printf("%f %f %f\n", uniformDataComposition.lightPos[0].x, uniformDataComposition.lightPos[0].y, uniformDataComposition.lightPos[0].z);
+#elif ASSET == 1
 		uniformDataComposition.lightPos[0] = glm::vec4(-0.911594f, 3.861007f, -1.508170f, 1.0f);
-
-#elif ASSET == 7
-		uniformDataComposition.lightPos[0] = glm::vec4(0.0f, 3.861007f, 2.0f, 1.0f);
 #endif
-		// Spot light unused
-		//uniformDataComposition.lightPos[1] = glm::vec4(10.05f, 2.3f, -0.25f, 1.0f);
-
 		memcpy(uniformBuffers.composition.mapped, &uniformDataComposition, sizeof(uniformDataComposition));
 	}
 
@@ -1974,55 +2076,199 @@ public:
 		return true;
 	}
 
-	VkExternalMemoryHandleTypeFlagBits getDefaultMemHandleType() {
-#ifdef _WIN64
-		return IsWindows8Point1OrGreater()
-			? VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT
-			: VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT;
-#else
-		return VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
-#endif /* _WIN64 */
-	}
-
-	void createExternalBuffer()
-	{
-		// Create the height map cuda will write to
-		size_t bufferSize = width * height * 4 * sizeof(float);
-		createExternalBuffer(
-			bufferSize,
-			VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, getDefaultMemHandleType(),
-			m_heightBuffer, m_heightMemory);
-	}
-
 	void createShadowmapCommandBuffers()
 	{
 		// Create one command buffer for each swap chain image and reuse for rendering
 		shadowmapCmdBuffers.resize(swapChain.imageCount);
-		shadowmapCmdBuffers = vulkanDevice->createCommandBuffers(VK_COMMAND_BUFFER_LEVEL_PRIMARY, shadowmapCmdBuffers);
+		VkCommandBufferAllocateInfo cmdBufAllocateInfo = vks::initializers::commandBufferAllocateInfo(cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, static_cast<uint32_t>(shadowmapCmdBuffers.size()));
+		VK_CHECK_RESULT(vkAllocateCommandBuffers(device, &cmdBufAllocateInfo, shadowmapCmdBuffers.data()));
 	}
 
 	void createGeometryCommandBuffers()
 	{
 		// Create one command buffer for each swap chain image and reuse for rendering
 		geometryCmdBuffers.resize(swapChain.imageCount);
-		geometryCmdBuffers = vulkanDevice->createCommandBuffers(VK_COMMAND_BUFFER_LEVEL_PRIMARY, geometryCmdBuffers);
+		VkCommandBufferAllocateInfo cmdBufAllocateInfo = vks::initializers::commandBufferAllocateInfo(cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, static_cast<uint32_t>(geometryCmdBuffers.size()));
+		VK_CHECK_RESULT(vkAllocateCommandBuffers(device, &cmdBufAllocateInfo, geometryCmdBuffers.data()));
 	}
 
-	void createLightCommandBuffers()
+	void createExternalBuffer()
 	{
-		// Create one command buffer for each swap chain image and reuse for rendering
-		drawCmdBuffers.resize(swapChain.imageCount);
-		drawCmdBuffers = vulkanDevice->createCommandBuffers(VK_COMMAND_BUFFER_LEVEL_PRIMARY, drawCmdBuffers);
+		// Create the height map cuda will write to
+		size_t bufferSize = width * height * 4 * sizeof(float);
+		//createExternalBuffer(
+		//	bufferSize,
+		//	VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		//	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, getDefaultMemHandleType(),
+		//	m_heightBuffer, m_heightMemory);
 	}
 
+	void createStream(cudaStream_t* pStream, unsigned int flags)
+	{
+		CUDA_CALL(cudaStreamCreateWithFlags(pStream, flags));
+	}
+
+	void createExternalSemaphore(VkSemaphore& semaphore, VkExternalSemaphoreHandleTypeFlagBits handleType)
+	{
+		VkSemaphoreCreateInfo semaphoreCreateInfo = vks::initializers::semaphoreCreateInfo();
+		VkExportSemaphoreCreateInfoKHR exportSemaphoreCreateInfo = {};
+		exportSemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO_KHR;
+
+		VkSemaphoreTypeCreateInfo timelineCreateInfo;
+		timelineCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+		timelineCreateInfo.pNext = NULL;
+		timelineCreateInfo.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+		timelineCreateInfo.initialValue = 0;
+		exportSemaphoreCreateInfo.pNext = &timelineCreateInfo;
+		exportSemaphoreCreateInfo.handleTypes = handleType;
+		semaphoreCreateInfo.pNext = &exportSemaphoreCreateInfo;
+
+		VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &semaphore));
+	}
+
+	void cudaVkImportImageMem() {
+		cudaExternalMemoryHandleDesc cudaExtMemHandleDesc;
+		memset(&cudaExtMemHandleDesc, 0, sizeof(cudaExtMemHandleDesc));
+#ifdef _WIN64
+		cudaExtMemHandleDesc.type =
+			IsWindows8OrGreater() ? cudaExternalMemoryHandleTypeOpaqueWin32
+			: cudaExternalMemoryHandleTypeOpaqueWin32Kmt;
+		cudaExtMemHandleDesc.handle.win32.handle = getVkImageMemHandle(
+			IsWindows8OrGreater()
+			? VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT
+			: VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT);
+#else
+		cudaExtMemHandleDesc.type = cudaExternalMemoryHandleTypeOpaqueFd;
+
+		cudaExtMemHandleDesc.handle.fd =
+			getVkImageMemHandle(VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR);
+#endif
+		cudaExtMemHandleDesc.size = totalImageMemSize;
+
+		CUDA_CALL(cudaImportExternalMemory(&cudaExtMemImageBuffer,
+			&cudaExtMemHandleDesc));
+
+		cudaExternalMemoryMipmappedArrayDesc externalMemoryMipmappedArrayDesc;
+
+		memset(&externalMemoryMipmappedArrayDesc, 0,
+			sizeof(externalMemoryMipmappedArrayDesc));
+
+		cudaExtent extent = make_cudaExtent(imageWidth, imageHeight, 0);
+		cudaChannelFormatDesc formatDesc;
+		formatDesc.x = 8;
+		formatDesc.y = 8;
+		formatDesc.z = 8;
+		formatDesc.w = 8;
+		formatDesc.f = cudaChannelFormatKindUnsigned;
+
+		externalMemoryMipmappedArrayDesc.offset = 0;
+		externalMemoryMipmappedArrayDesc.formatDesc = formatDesc;
+		externalMemoryMipmappedArrayDesc.extent = extent;
+		externalMemoryMipmappedArrayDesc.flags = 0;
+		externalMemoryMipmappedArrayDesc.numLevels = mipLevels;
+
+		CUDA_CALL(cudaExternalMemoryGetMappedMipmappedArray(
+			&cudaMipmappedImageArray, cudaExtMemImageBuffer,
+			&externalMemoryMipmappedArrayDesc));
+
+		CUDA_CALL(cudaMallocMipmappedArray(&cudaMipmappedImageArrayTemp,
+			&formatDesc, extent, mipLevels));
+		CUDA_CALL(cudaMallocMipmappedArray(&cudaMipmappedImageArrayOrig,
+			&formatDesc, extent, mipLevels));
+
+		for (int mipLevelIdx = 0; mipLevelIdx < mipLevels; mipLevelIdx++) {
+			cudaArray_t cudaMipLevelArray, cudaMipLevelArrayTemp,
+				cudaMipLevelArrayOrig;
+			cudaResourceDesc resourceDesc;
+
+			CUDA_CALL(cudaGetMipmappedArrayLevel(
+				&cudaMipLevelArray, cudaMipmappedImageArray, mipLevelIdx));
+			CUDA_CALL(cudaGetMipmappedArrayLevel(
+				&cudaMipLevelArrayTemp, cudaMipmappedImageArrayTemp, mipLevelIdx));
+			CUDA_CALL(cudaGetMipmappedArrayLevel(
+				&cudaMipLevelArrayOrig, cudaMipmappedImageArrayOrig, mipLevelIdx));
+
+			uint32_t width =
+				(imageWidth >> mipLevelIdx) ? (imageWidth >> mipLevelIdx) : 1;
+			uint32_t height =
+				(imageHeight >> mipLevelIdx) ? (imageHeight >> mipLevelIdx) : 1;
+			CUDA_CALL(cudaMemcpy2DArrayToArray(
+				cudaMipLevelArrayOrig, 0, 0, cudaMipLevelArray, 0, 0,
+				width * sizeof(uchar4), height, cudaMemcpyDeviceToDevice));
+
+			memset(&resourceDesc, 0, sizeof(resourceDesc));
+			resourceDesc.resType = cudaResourceTypeArray;
+			resourceDesc.res.array.array = cudaMipLevelArray;
+
+			cudaSurfaceObject_t surfaceObject;
+			CUDA_CALL(cudaCreateSurfaceObject(&surfaceObject, &resourceDesc));
+
+			surfaceObjectList.push_back(surfaceObject);
+
+			memset(&resourceDesc, 0, sizeof(resourceDesc));
+			resourceDesc.resType = cudaResourceTypeArray;
+			resourceDesc.res.array.array = cudaMipLevelArrayTemp;
+
+			cudaSurfaceObject_t surfaceObjectTemp;
+			checkCudaErrors(
+				cudaCreateSurfaceObject(&surfaceObjectTemp, &resourceDesc));
+			surfaceObjectListTemp.push_back(surfaceObjectTemp);
+		}
+
+		cudaResourceDesc resDescr;
+		memset(&resDescr, 0, sizeof(cudaResourceDesc));
+
+		resDescr.resType = cudaResourceTypeMipmappedArray;
+		resDescr.res.mipmap.mipmap = cudaMipmappedImageArrayOrig;
+
+		cudaTextureDesc texDescr;
+		memset(&texDescr, 0, sizeof(cudaTextureDesc));
+
+		texDescr.normalizedCoords = true;
+		texDescr.filterMode = cudaFilterModeLinear;
+		texDescr.mipmapFilterMode = cudaFilterModeLinear;
+
+		texDescr.addressMode[0] = cudaAddressModeWrap;
+		texDescr.addressMode[1] = cudaAddressModeWrap;
+
+		texDescr.maxMipmapLevelClamp = float(mipLevels - 1);
+
+		texDescr.readMode = cudaReadModeNormalizedFloat;
+
+		CUDA_CALL(cudaCreateTextureObject(&textureObjMipMapInput, &resDescr,
+			&texDescr, NULL));
+
+		CUDA_CALL(cudaMalloc((void**)&d_surfaceObjectList,
+			sizeof(cudaSurfaceObject_t) * mipLevels));
+		CUDA_CALL(cudaMalloc((void**)&d_surfaceObjectListTemp,
+			sizeof(cudaSurfaceObject_t) * mipLevels));
+
+		CUDA_CALL(cudaMemcpy(d_surfaceObjectList, surfaceObjectList.data(),
+			sizeof(cudaSurfaceObject_t) * mipLevels,
+			cudaMemcpyHostToDevice));
+		CUDA_CALL(cudaMemcpy(
+			d_surfaceObjectListTemp, surfaceObjectListTemp.data(),
+			sizeof(cudaSurfaceObject_t) * mipLevels, cudaMemcpyHostToDevice));
+
+		printf("CUDA Kernel Vulkan image buffer\n");
+	}
+
+	void initCuda()
+	{
+		createStream(&externalMemoryObject.m_stream, cudaStreamNonBlocking);
+		createExternalBuffer();
+		//importCudaExternalMemory((void**)&m_cudaHeightMap, m_cudaVertMem,
+		//	m_heightMemory, nVerts * sizeof(*m_cudaHeightMap),
+		//	getDefaultMemHandleType());
+		createExternalSemaphore(externalMemoryObject.m_vkTimelineSemaphore, getDefaultSemaphoreHandleType());
+		importCudaExternalSemaphore(externalMemoryObject.m_cudaTimelineSemaphore, externalMemoryObject.m_vkTimelineSemaphore,getDefaultSemaphoreHandleType());
+	}
 
 	void prepare()
 	{
 		VulkanRTCommon::prepare();
 		createShadowmapCommandBuffers();
 		createGeometryCommandBuffers();
-		createLightCommandBuffers();
 
 		loadAssets();
 
@@ -2070,6 +2316,26 @@ public:
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &geometryCmdBuffers[currentBuffer];
 		VkResult result1 = vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+
+		static uint64_t waitValue = 1;
+		static uint64_t signalValue = 2;
+
+		cudaExternalSemaphoreWaitParams waitParams = {};
+		waitParams.flags = 0;
+		waitParams.params.fence.value = waitValue;
+
+		cudaExternalSemaphoreSignalParams signalParams = {};
+		signalParams.flags = 0;
+		signalParams.params.fence.value = signalValue;
+
+		CUDA_CALL(cudaWaitExternalSemaphoresAsync(&externalMemoryObject.m_cudaTimelineSemaphore, &waitParams, 1, externalMemoryObject.m_stream));
+
+
+
+		CUDA_CALL(cudaSignalExternalSemaphoresAsync(&externalMemoryObject.m_cudaTimelineSemaphore, &signalParams, 1, externalMemoryObject.m_stream));
+
+		waitValue += 2;
+		signalValue += 2;
 
 		submitInfo.pNext = NULL;
 		submitInfo.pWaitDstStageMask = &lightingWaitStages;

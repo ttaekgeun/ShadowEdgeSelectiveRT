@@ -1,43 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\projects\VulkanFullRT\VulkanFullRT.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\anyhit.rahit">
-      <Filter>Shaders\GLSL</Filter>
-    </None>
-    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\bufferreferences.glsl">
-      <Filter>Shaders\GLSL</Filter>
-    </None>
-    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\closesthitBasic.rchit">
-      <Filter>Shaders\GLSL</Filter>
-    </None>
-    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\geometryfunctions.glsl">
-      <Filter>Shaders\GLSL</Filter>
-    </None>
-    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\geometrytypes.glsl">
-      <Filter>Shaders\GLSL</Filter>
-    </None>
-    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\miss.rmiss">
-      <Filter>Shaders\GLSL</Filter>
-    </None>
-    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\random.glsl">
-      <Filter>Shaders\GLSL</Filter>
-    </None>
-    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\raygen.rgen">
-      <Filter>Shaders\GLSL</Filter>
-    </None>
-    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\shadow.rmiss">
-      <Filter>Shaders\GLSL</Filter>
-    </None>
-    <None Include="..\..\shaders\glsl\VulkanFullRT\shadow.rchit">
-      <Filter>Shaders\GLSL</Filter>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
     <Filter Include="Shaders">
       <UniqueIdentifier>{556BBD9A-E4E9-3D17-975D-96952F412F5B}</UniqueIdentifier>
     </Filter>
@@ -47,5 +10,45 @@
     <Filter Include="Source Files">
       <UniqueIdentifier>{C2E95DB4-C701-3A85-A5BA-AE835F22C91A}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders\GLSL\include">
+      <UniqueIdentifier>{b842d786-4a8d-48e5-8b8a-dae5ee66f79c}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\shaders\glsl\VulkanFullRT\shadow.rmiss">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="..\..\shaders\glsl\VulkanFullRT\anyhit.rahit">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="..\..\shaders\glsl\VulkanFullRT\closesthitBasic.rchit">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="..\..\shaders\glsl\VulkanFullRT\miss.rmiss">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="..\..\shaders\glsl\VulkanFullRT\raygen.rgen">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="..\..\shaders\glsl\VulkanFullRT\shadow.rchit">
+      <Filter>Shaders\GLSL</Filter>
+    </None>
+    <None Include="..\..\shaders\glsl\VulkanFullRT\bufferreferences.glsl">
+      <Filter>Shaders\GLSL\include</Filter>
+    </None>
+    <None Include="..\..\shaders\glsl\VulkanFullRT\geometryfunctions.glsl">
+      <Filter>Shaders\GLSL\include</Filter>
+    </None>
+    <None Include="..\..\shaders\glsl\VulkanFullRT\geometrytypes.glsl">
+      <Filter>Shaders\GLSL\include</Filter>
+    </None>
+    <None Include="..\..\shaders\glsl\VulkanFullRT\random.glsl">
+      <Filter>Shaders\GLSL\include</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\projects\VulkanFullRT\VulkanFullRT.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

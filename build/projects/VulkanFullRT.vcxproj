@@ -145,28 +145,6 @@
     </ProjectReference>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\projects\VulkanFullRT\VulkanFullRT.cpp" />
-    <None Include="..\..\shaders\glsl\VulkanFullRT\shadow.rchit" />
-    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\anyhit.rahit">
-    </None>
-    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\bufferreferences.glsl">
-    </None>
-    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\closesthitBasic.rchit">
-    </None>
-    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\geometryfunctions.glsl">
-    </None>
-    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\geometrytypes.glsl">
-    </None>
-    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\miss.rmiss">
-    </None>
-    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\random.glsl">
-    </None>
-    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\raygen.rgen">
-    </None>
-    <None Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\shaders\glsl\VulkanFullRT\shadow.rmiss">
-    </None>
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="C:\Users\grgogh\Desktop\Vulkan\SamsungVulkanRT_2024\build\ZERO_CHECK.vcxproj">
       <Project>{A04A23E1-0CEE-33BA-BF1C-2CB9F1C41D88}</Project>
       <Name>ZERO_CHECK</Name>
@@ -177,6 +155,21 @@
       <Project>{6DBF6A14-0951-36D3-9097-168141D9309A}</Project>
       <Name>base</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\shaders\glsl\VulkanFullRT\anyhit.rahit" />
+    <None Include="..\..\shaders\glsl\VulkanFullRT\bufferreferences.glsl" />
+    <None Include="..\..\shaders\glsl\VulkanFullRT\closesthitBasic.rchit" />
+    <None Include="..\..\shaders\glsl\VulkanFullRT\geometryfunctions.glsl" />
+    <None Include="..\..\shaders\glsl\VulkanFullRT\geometrytypes.glsl" />
+    <None Include="..\..\shaders\glsl\VulkanFullRT\miss.rmiss" />
+    <None Include="..\..\shaders\glsl\VulkanFullRT\random.glsl" />
+    <None Include="..\..\shaders\glsl\VulkanFullRT\raygen.rgen" />
+    <None Include="..\..\shaders\glsl\VulkanFullRT\shadow.rchit" />
+    <None Include="..\..\shaders\glsl\VulkanFullRT\shadow.rmiss" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\projects\VulkanFullRT\VulkanFullRT.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

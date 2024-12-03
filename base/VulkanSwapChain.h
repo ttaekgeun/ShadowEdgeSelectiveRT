@@ -1,6 +1,6 @@
 /*
 * Class wrapping access to the swap chain
-* 
+*
 * A swap chain is a collection of framebuffers used for rendering and presentation to the windowing system
 *
 * Copyright (C) 2016-2023 by Sascha Willems - www.saschawillems.de
@@ -34,7 +34,7 @@ typedef struct _SwapChainBuffers {
 
 class VulkanSwapChain
 {
-private: 
+private:
 	VkInstance instance;
 	VkDevice device;
 	VkPhysicalDevice physicalDevice;
@@ -42,7 +42,7 @@ private:
 public:
 	VkFormat colorFormat;
 	VkColorSpaceKHR colorSpace;
-	VkSwapchainKHR swapChain = VK_NULL_HANDLE;	
+	VkSwapchainKHR swapChain = VK_NULL_HANDLE;
 	uint32_t imageCount;
 	std::vector<VkImage> images;
 	std::vector<SwapChainBuffer> buffers;
@@ -71,6 +71,6 @@ public:
 	void connect(VkInstance instance, VkPhysicalDevice physicalDevice, VkDevice device);
 	void create(uint32_t* width, uint32_t* height, bool vsync = false, bool fullscreen = false);
 	VkResult acquireNextImage(VkSemaphore presentCompleteSemaphore, uint32_t* imageIndex);
-	VkResult queuePresent(VkQueue queue, uint32_t* imageIndex, VkSemaphore *waitSemaphore = VK_NULL_HANDLE);
+	VkResult queuePresent(VkQueue queue, uint32_t imageIndex, VkSemaphore waitSemaphore = VK_NULL_HANDLE);
 	void cleanup();
 };

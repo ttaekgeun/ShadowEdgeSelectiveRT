@@ -51,7 +51,6 @@ public:
 	struct UniformData {
 		alignas(16) glm::mat4 viewInverse;
 		alignas(16) glm::mat4 projInverse;
-		alignas(4) uint32_t frame{ 0 };
 		alignas(16) glm::vec4 lightPos[1];	
 	} uniformData;
 
@@ -74,33 +73,31 @@ public:
 
 		camera.type = Camera::CameraType::SG_camera;
 		camera.movementSpeed = 5.0f;
-#ifndef __ANDROID__
-		camera.rotationSpeed = 0.25f;
-#endif
 		camera.setPerspective(60.0f, (float)width / (float)height, 0.1f, 5000.0f);
 
-#if ASSET == 1
+#if ASSET == 0
 #if VIEW == 0
-		//View1: origin
-		camera.setTranslation(glm::vec3(-4.211443, 1.331187, -0.232099));
-		camera.setRotation(glm::vec3(-3.199999, -88.599998, 0.000000));
+		camera.setTranslation(glm::vec3(1.146842, 2.282518, 1.067378));
+		camera.setRotation(glm::vec3(-22.524939, 58.374725, 0.000000));
 #elif VIEW == 1
-		//View2: Statue
-		camera.setTranslation(glm::vec3(0.467059, 2.149373, 0.635194));
-		camera.setRotation(glm::vec3(-24.974909, 419.426270, 0.000000));
+		camera.setTranslation(glm::vec3(-6.497121, 1.637290, -1.421643));
+		camera.setRotation(glm::vec3(10.925017, -102.249245, 0.000000));
 #elif VIEW == 2
-		//View3: Reflection Sphere
-		camera.setTranslation(glm::vec3(-5.092072, 0.952277, -0.225272));
-		camera.setRotation(glm::vec3(-1.075000, 89.374664, 0.000000));
-#elif VIEW == 3
-		//View4: Refraction Sphere
-		camera.setTranslation(glm::vec3(4.787909, 1.060884, -0.251538));
-		camera.setRotation(glm::vec3(-1.224980, 270.974274, 0.000000));
+		camera.setTranslation(glm::vec3(4.291043, 4.683933, -1.352913));
+		camera.setRotation(glm::vec3(-20.874960, 106.026215, 0.000000));
 #endif
-#elif ASSET == 2
-		camera.setTranslation(glm::vec3(-2.039184, -2.108208, 13.222129));
-		camera.setRotation(glm::vec3(9.474999, 346.226501, 0.000000));
-#endif	
+#elif ASSET == 1
+#if VIEW == 0
+		camera.setTranslation(glm::vec3(1.146842, 2.282518, 1.067378));
+		camera.setRotation(glm::vec3(-22.524939, 58.374725, 0.000000));
+#elif VIEW == 1
+		camera.setTranslation(glm::vec3(-6.497121, 1.637290, -1.421643));
+		camera.setRotation(glm::vec3(10.925017, -102.249245, 0.000000));
+#elif VIEW == 2
+		camera.setTranslation(glm::vec3(4.291043, 4.683933, -1.352913));
+		camera.setRotation(glm::vec3(-20.874960, 106.026215, 0.000000));
+#endif
+#endif
 
 		enableExtensions();
 
@@ -554,6 +551,18 @@ public:
 			shaderGroup.anyHitShader = anyHitIdx;
 			shaderGroups.push_back(shaderGroup);
 		}
+		// Closest hit group 1 : Shadow
+		{
+			shaderStages.push_back(loadShader(getShadersPath() + DIR_PATH + "shadow.rchit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
+			VkRayTracingShaderGroupCreateInfoKHR shaderGroup{};
+			shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+			shaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+			shaderGroup.generalShader = VK_SHADER_UNUSED_KHR;
+			shaderGroup.closestHitShader = static_cast<uint32_t>(shaderStages.size()) - 1;
+			shaderGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
+			shaderGroup.anyHitShader = anyHitIdx;
+			shaderGroups.push_back(shaderGroup);
+		}
 		/*
 			Create the ray tracing pipeline
 		*/
@@ -662,9 +671,6 @@ public:
 			sizeof(uniformData),
 			&uniformData));
 		VK_CHECK_RESULT(uniformBuffer.map());
-
-		// Spot light unused
-		//uniformData.lightPos[1] = glm::vec4(10.05f, 2.3f, -0.25f, 1.0f);
 
 		updateUniformBuffers();
 	}
@@ -776,17 +782,13 @@ public:
 		// It's required as ray tracing needs to do multiple passes for transparency
 		// In this sample we use noise offset by this frame index to shoot rays for transparency into different directions
 		// Once enough frames with random ray directions have been accumulated, it looks like proper transparency
-		uniformData.frame++;
 
-#if ASSET == 1
+#if ASSET == 0
 		uniformData.lightPos[0] = glm::vec4(0.0f + cos(glm::radians(timer * 360.0f)) * 50.0f,
 			100.0f, 0.0f + sin(glm::radians(timer * 360.0f)) * 15.0f, 1.0f);
-#elif ASSET == 2
+#elif ASSET == 1
 		uniformData.lightPos[0] = glm::vec4(-0.911594f, 3.861007f, -1.508170f, 1.0f);
 #endif
-		// Spot light unused
-		//uniformDataComposition.lightPos[1] = glm::vec4(10.05f, 2.3f, -0.25f, 1.0f);
-
 		memcpy(uniformBuffer.mapped, &uniformData, sizeof(uniformData));
 	}
 
@@ -1079,10 +1081,6 @@ public:
 		if (!prepared)
 			return;
 		updateUniformBuffers();
-		if (camera.updated) {
-			// If the camera's view has been updated we reset the frame accumulation
-			uniformData.frame = -1;
-		}
 		draw();
 	}
 };
