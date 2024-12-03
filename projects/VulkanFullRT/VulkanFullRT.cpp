@@ -72,7 +72,7 @@ public:
 		title = "Sogang Univ - Vulkan Full Ray Tracing";
 
 		camera.type = Camera::CameraType::SG_camera;
-		camera.movementSpeed = 5.0f;
+		camera.movementSpeed = 20.0f;
 		camera.setPerspective(60.0f, (float)width / (float)height, 0.1f, 5000.0f);
 
 #if ASSET == 0
@@ -787,7 +787,7 @@ public:
 		uniformData.lightPos[0] = glm::vec4(0.0f + cos(glm::radians(timer * 360.0f)) * 50.0f,
 			100.0f, 0.0f + sin(glm::radians(timer * 360.0f)) * 15.0f, 1.0f);
 #elif ASSET == 1
-		uniformData.lightPos[0] = glm::vec4(-0.911594f, 3.861007f, -1.508170f, 1.0f);
+		uniformData.lightPos[0] = glm::vec4(1.0f, 100.0f, 0.0f, 1.0f);
 #endif
 		memcpy(uniformBuffer.mapped, &uniformData, sizeof(uniformData));
 	}

@@ -2,7 +2,7 @@
 
 #define DRAW_WORLD_AXIS 0
 
-#define ASSET 0
+#define ASSET 1
 #define VIEW 0
 
 #if ASSET == 0

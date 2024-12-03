@@ -10,8 +10,9 @@
 layout (location = 0) in vec4 inPos;
 layout (location = 1) in vec2 inUV;
 layout (location = 2) in vec3 inNormal;
-layout (location = 3) in vec4 inTangent;
-layout (location = 4) in uint inObjectID;
+layout (location = 3) in vec4 inColor;
+layout (location = 4) in vec4 inTangent;
+layout (location = 5) in uint inObjectID;
 
 layout (binding = 4) uniform UBO 
 {
@@ -23,7 +24,8 @@ layout (binding = 4) uniform UBO
 layout (location = 0) out vec3 outNormal;
 layout (location = 1) out vec2 outUV;
 layout (location = 2) out vec4 outWorldPos;
-layout (location = 3) out vec4 outTangent;
+layout (location = 3) out vec4 outColor;
+layout (location = 4) out vec4 outTangent;
 
 void main() 
 {
@@ -36,4 +38,5 @@ void main()
 	// Normal in world space
 	outNormal = (ubo.modelMatrixInvTrans * vec4(normalize(inNormal), 0.0f)).xyz;	
 	outTangent = vec4((ubo.modelMatrixInvTrans * vec4(normalize(inTangent.xyz), 0.0f)).xyz, inTangent.w);
+	outColor = inColor;
 }

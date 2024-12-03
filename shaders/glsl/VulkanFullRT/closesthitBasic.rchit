@@ -91,7 +91,7 @@ void main()
 
 	//vec3 albedo = tri.color.rgb;
 	if (nonuniformEXT(geometryNode.textureIndexBaseColor) > -1) {
-		tri.color.rgb = pow(texture(textures[nonuniformEXT(geometryNode.textureIndexBaseColor)], tri.uv).rgb, vec3(2.2));
+		tri.color.rgb = pow(texture(textures[nonuniformEXT(geometryNode.textureIndexBaseColor)], tri.uv).rgb * tri.color.rgb, vec3(2.2));
 	}
 
 //	vec3 aoMetallicRoughness = texture(textures[nonuniformEXT(geometryNode.textureIndexMetallicRoughness)], tri.uv).rgb;

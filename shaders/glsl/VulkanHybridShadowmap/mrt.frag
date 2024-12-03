@@ -14,9 +14,9 @@ layout (binding = 3) uniform sampler2D samplerEmissiveMap;
 
 layout (location = 0) in vec3 inNormal;
 layout (location = 1) in vec2 inUV;
-//layout (location = 2) in vec3 inWorldPos;
 layout (location = 2) in vec4 inWorldPos;
-layout (location = 3) in vec4 inTangent;
+layout (location = 3) in vec4 inColor;
+layout (location = 4) in vec4 inTangent;
 
 layout (location = 0) out vec4 outPosition;
 layout (location = 1) out vec4 outNormal;
@@ -46,7 +46,7 @@ vec3 CalculateNormal(sampler2D normalMap, vec3 normal, vec2 tex_coord, vec4 tang
 
 void main() 
 {
-	outAlbedo = texture(samplerColor, inUV);
+	outAlbedo = texture(samplerColor, inUV) * inColor;
 	if (outAlbedo.a == 0.0f)
 	{
 		discard;

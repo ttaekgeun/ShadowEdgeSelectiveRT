@@ -11,8 +11,6 @@
 #include "ShadowEdgeDetection.cuh"
 
 #include "../../base/Define.h"
-#include <VersionHelpers.h>
-#include <cuda_runtime_api.h>
 #define DIR_PATH "VulkanHybridShadowmap/"
 
 #define CUDA_CALL(x) {			\
@@ -23,7 +21,7 @@
 		cudaDeviceReset();		\
 		assert(0);				\
 	}							\
-}					
+}		
 
 class VulkanHybridShadowmap : public VulkanRTCommon
 {
@@ -38,7 +36,7 @@ public:
 	float zNear = 1.0f;
 	float zFar = 400.0f;
 
-	float lightFOV = 45.0f;
+	float lightFOV = 100.0f;
 #endif
 
 	struct UniformDataOffscreen {
@@ -121,7 +119,7 @@ public:
 	// Use a smaller size on Android for performance reasons
 	const uint32_t shadowMapize{ 1024 };
 #else
-	const uint32_t shadowMapize{ 4096 };
+	const uint32_t shadowMapize{ 16384 };
 #endif
 
 	// Depth bias (and slope) are used to avoid shadowing artifacts
@@ -177,23 +175,14 @@ public:
 
 	VkPhysicalDeviceDescriptorIndexingFeaturesEXT physicalDeviceDescriptorIndexingFeatures{};
 
-
-	PFN_vkGetMemoryWin32HandleKHR fpGetMemoryWin32HandleKHR;
-	PFN_vkGetSemaphoreWin32HandleKHR fpGetSemaphoreWin32HandleKHR;
-
-	struct ExternalMemoryObject {
-		cudaStream_t m_stream;
-		VkDeviceMemory m_vulkanMemory;
-		VkSemaphore m_vkTimelineSemaphore;
-		cudaExternalMemory_t m_cudaMemory;
-		cudaExternalSemaphore_t m_cudaTimelineSemaphore;
-	} externalMemoryObject;
-
 	VulkanHybridShadowmap() : VulkanRTCommon()
 	{
 		title = "Sogang Univ - Vulkan Hybrid with Shadow mapping";
 		camera.type = Camera::CameraType::SG_camera;
-		camera.movementSpeed = 5.0f;
+		camera.movementSpeed = 20.0f;
+#ifndef __ANDROID__
+		camera.rotationSpeed = 0.25f;
+#endif
 		camera.setPerspective(60.0f, (float)width / (float)height, 0.1f, 5000.0f);
 
 #if ASSET == 0
@@ -226,17 +215,6 @@ public:
 
 		enabledDeviceExtensions.push_back(VK_KHR_MAINTENANCE3_EXTENSION_NAME);
 		enabledDeviceExtensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
-
-		// External Memory Extensions (Device)
-		enabledDeviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
-		enabledDeviceExtensions.push_back(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME);
-		enabledDeviceExtensions.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
-		enabledDeviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
-		enabledDeviceExtensions.push_back(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
-
-		// External Memory Extensions (Instance)
-		supportedInstanceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME);
-		supportedInstanceExtensions.push_back(VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME);
 	}
 
 	~VulkanHybridShadowmap()
@@ -304,11 +282,6 @@ public:
 			vkDestroySemaphore(device, shadowmapSemaphore, nullptr);
 			vkDestroySemaphore(device, offscreenSemaphore, nullptr);
 
-			if (externalMemoryObject.m_vkTimelineSemaphore != VK_NULL_HANDLE) {
-				CUDA_CALL(cudaDestroyExternalSemaphore(externalMemoryObject.m_cudaTimelineSemaphore));
-				vkDestroySemaphore(device, externalMemoryObject.m_vkTimelineSemaphore, nullptr);
-			}
-
 			deleteAccelerationStructure(bottomLevelAS);
 			deleteAccelerationStructure(topLevelAS);
 
@@ -346,174 +319,11 @@ public:
 		enabledFeatures.samplerAnisotropy = VK_TRUE;
 	}
 
-	VkExternalMemoryHandleTypeFlagBits getDefaultMemHandleType() {
-		return IsWindows8Point1OrGreater()
-			? VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT
-			: VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT;
-	}
-
-	VkExternalSemaphoreHandleTypeFlagBits getDefaultSemaphoreHandleType() {
-		return IsWindows8OrGreater()
-			? VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT
-			: VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT;
-	}
-
-	void* getMemHandle(VkDeviceMemory memory, VkExternalMemoryHandleTypeFlagBits handleType) {
-		HANDLE handle = 0;
-
-		VkMemoryGetWin32HandleInfoKHR vkMemoryGetWin32HandleInfoKHR = {};
-		vkMemoryGetWin32HandleInfoKHR.sType =
-			VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR;
-		vkMemoryGetWin32HandleInfoKHR.pNext = NULL;
-		vkMemoryGetWin32HandleInfoKHR.memory = memory;
-		vkMemoryGetWin32HandleInfoKHR.handleType = handleType;
-
-		PFN_vkGetMemoryWin32HandleKHR fpGetMemoryWin32HandleKHR;
-		fpGetMemoryWin32HandleKHR =
-			(PFN_vkGetMemoryWin32HandleKHR)vkGetDeviceProcAddr(
-				device, "vkGetMemoryWin32HandleKHR");
-		if (!fpGetMemoryWin32HandleKHR) {
-			throw std::runtime_error("Failed to retrieve vkGetMemoryWin32HandleKHR!");
-		}
-		if (fpGetMemoryWin32HandleKHR(device, &vkMemoryGetWin32HandleInfoKHR,
-			&handle) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to retrieve handle for buffer!");
-		}
-		return (void*)handle;
-	}
-
-	void importCudaExternalMemory(void** cudaPtr, cudaExternalMemory_t& cudaMem,
-		VkDeviceMemory& vkMem, VkDeviceSize size,
-		VkExternalMemoryHandleTypeFlagBits handleType) {
-		cudaExternalMemoryHandleDesc externalMemoryHandleDesc = {};
-
-		if (handleType & VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT) {
-			externalMemoryHandleDesc.type = cudaExternalMemoryHandleTypeOpaqueWin32;
-		}
-		else if (handleType &
-			VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT) {
-			externalMemoryHandleDesc.type =
-				cudaExternalMemoryHandleTypeOpaqueWin32Kmt;
-		}
-		else if (handleType & VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT) {
-			externalMemoryHandleDesc.type = cudaExternalMemoryHandleTypeOpaqueFd;
-		}
-		else {
-			throw std::runtime_error("Unknown handle type requested!");
-		}
-
-		externalMemoryHandleDesc.size = size;
-
-#ifdef _WIN64
-		externalMemoryHandleDesc.handle.win32.handle =
-			(HANDLE)getMemHandle(vkMem, handleType);
-#else
-		externalMemoryHandleDesc.handle.fd =
-			(int)(uintptr_t)getMemHandle(vkMem, handleType);
-#endif
-
-		CUDA_CALL(cudaImportExternalMemory(&cudaMem, &externalMemoryHandleDesc));
-
-		cudaExternalMemoryBufferDesc externalMemBufferDesc = {};
-		externalMemBufferDesc.offset = 0;
-		externalMemBufferDesc.size = size;
-		externalMemBufferDesc.flags = 0;
-
-		CUDA_CALL(cudaExternalMemoryGetMappedBuffer(cudaPtr, cudaMem, &externalMemBufferDesc));
-	}
-
-	void* getSemaphoreHandle(VkSemaphore semaphore, VkExternalSemaphoreHandleTypeFlagBits handleType) {
-		HANDLE handle;
-
-		VkSemaphoreGetWin32HandleInfoKHR semaphoreGetWin32HandleInfoKHR = {};
-		semaphoreGetWin32HandleInfoKHR.sType =
-			VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR;
-		semaphoreGetWin32HandleInfoKHR.pNext = NULL;
-		semaphoreGetWin32HandleInfoKHR.semaphore = semaphore;
-		semaphoreGetWin32HandleInfoKHR.handleType = handleType;
-
-		PFN_vkGetSemaphoreWin32HandleKHR fpGetSemaphoreWin32HandleKHR;
-		fpGetSemaphoreWin32HandleKHR =
-			(PFN_vkGetSemaphoreWin32HandleKHR)vkGetDeviceProcAddr(
-				device, "vkGetSemaphoreWin32HandleKHR");
-		if (!fpGetSemaphoreWin32HandleKHR) {
-			throw std::runtime_error("Failed to retrieve vkGetMemoryWin32HandleKHR!");
-		}
-		if (fpGetSemaphoreWin32HandleKHR(device, &semaphoreGetWin32HandleInfoKHR,
-			&handle) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to retrieve handle for buffer!");
-		}
-
-		return (void*)handle;
-	}
-
-	void importCudaExternalSemaphore(cudaExternalSemaphore_t& cudaSem, VkSemaphore& vkSem, VkExternalSemaphoreHandleTypeFlagBits handleType)
-	{
-		cudaExternalSemaphoreHandleDesc externalSemaphoreHandleDesc = {};
-
-		if (handleType & VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT) {
-			externalSemaphoreHandleDesc.type =
-				cudaExternalSemaphoreHandleTypeTimelineSemaphoreWin32;
-		}
-		else if (handleType &
-			VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT) {
-			externalSemaphoreHandleDesc.type =
-				cudaExternalSemaphoreHandleTypeTimelineSemaphoreWin32;
-		}
-		else if (handleType & VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT) {
-			externalSemaphoreHandleDesc.type =
-				cudaExternalSemaphoreHandleTypeTimelineSemaphoreFd;
-		}
-		else {
-			throw std::runtime_error("Unknown handle type requested!");
-		}
-
-#ifdef _WIN64
-		externalSemaphoreHandleDesc.handle.win32.handle =
-			(HANDLE)getSemaphoreHandle(vkSem, handleType);
-#else
-		externalSemaphoreHandleDesc.handle.fd =
-			(int)(uintptr_t)getSemaphoreHandle(vkSem, handleType);
-#endif
-
-		externalSemaphoreHandleDesc.flags = 0;
-
-		CUDA_CALL(cudaImportExternalSemaphore(&cudaSem, &externalSemaphoreHandleDesc));
-	}
-
-	HANDLE getVkImageMemHandle(VkExternalMemoryHandleTypeFlagsKHR externalMemoryHandleType, VkDeviceMemory deviceMemory) {
-		HANDLE handle;
-
-		VkMemoryGetWin32HandleInfoKHR vkMemoryGetWin32HandleInfoKHR = {};
-		vkMemoryGetWin32HandleInfoKHR.sType =
-			VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR;
-		vkMemoryGetWin32HandleInfoKHR.pNext = NULL;
-		vkMemoryGetWin32HandleInfoKHR.memory = deviceMemory;
-		vkMemoryGetWin32HandleInfoKHR.handleType = (VkExternalMemoryHandleTypeFlagBitsKHR)externalMemoryHandleType;
-
-		fpGetMemoryWin32HandleKHR(device, &vkMemoryGetWin32HandleInfoKHR, &handle);
-		return handle;
-	}
-	HANDLE getVkSemaphoreHandle(VkExternalSemaphoreHandleTypeFlagBitsKHR externalSemaphoreHandleType, VkSemaphore& semVkCuda) {
-		HANDLE handle;
-
-		VkSemaphoreGetWin32HandleInfoKHR vulkanSemaphoreGetWin32HandleInfoKHR = {};
-		vulkanSemaphoreGetWin32HandleInfoKHR.sType =
-			VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR;
-		vulkanSemaphoreGetWin32HandleInfoKHR.pNext = NULL;
-		vulkanSemaphoreGetWin32HandleInfoKHR.semaphore = semVkCuda;
-		vulkanSemaphoreGetWin32HandleInfoKHR.handleType = externalSemaphoreHandleType;
-
-		fpGetSemaphoreWin32HandleKHR(device, &vulkanSemaphoreGetWin32HandleInfoKHR, &handle);
-
-		return handle;
-	}
-
 	// Create a frame buffer attachment
 	void createAttachment(
 		VkFormat format,
 		VkImageUsageFlagBits usage,
-		FrameBufferAttachment *attachment)
+		FrameBufferAttachment* attachment)
 	{
 		VkImageAspectFlags aspectMask = 0;
 		VkImageLayout imageLayout;
@@ -529,7 +339,7 @@ public:
 		{
 			aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 			if (format >= VK_FORMAT_D16_UNORM_S8_UINT)
-				aspectMask |=VK_IMAGE_ASPECT_STENCIL_BIT;
+				aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 			imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		}
 
@@ -575,21 +385,21 @@ public:
 		VkAttachmentDescription attachmentDescription{};
 		attachmentDescription.format = shadowmapFrameBuf.depth.format;
 		attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
-		attachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;					
-		attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;						
+		attachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		attachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		attachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;					
+		attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		attachmentDescription.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 
 		VkAttachmentReference depthReference = {};
 		depthReference.attachment = 0;
-		depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;	
+		depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 		VkSubpassDescription subpass = {};
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass.colorAttachmentCount = 0;												
-		subpass.pDepthStencilAttachment = &depthReference;								
+		subpass.colorAttachmentCount = 0;
+		subpass.pDepthStencilAttachment = &depthReference;
 
 		std::array<VkSubpassDependency, 2> dependencies;
 
@@ -638,7 +448,7 @@ public:
 		image.samples = VK_SAMPLE_COUNT_1_BIT;
 		image.tiling = VK_IMAGE_TILING_OPTIMAL;
 		image.format = shadowmapFrameBuf.depth.format;
-		image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;		
+		image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		VK_CHECK_RESULT(vkCreateImage(device, &image, nullptr, &shadowmapFrameBuf.depth.image));
 
 		VkMemoryAllocateInfo memAlloc = vks::initializers::memoryAllocateInfo();
@@ -664,7 +474,7 @@ public:
 		// Create sampler to sample from to depth attachment
 		// Used to sample in the fragment shader for shadowed rendering
 		VkFilter shadowmap_filter = VK_FILTER_NEAREST;
-			//vks::tools::formatIsFilterable(physicalDevice, shadowmapFrameBuf.depth.format, VK_IMAGE_TILING_OPTIMAL) ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+		//vks::tools::formatIsFilterable(physicalDevice, shadowmapFrameBuf.depth.format, VK_IMAGE_TILING_OPTIMAL) ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 		VkSamplerCreateInfo sampler = vks::initializers::samplerCreateInfo();
 		sampler.magFilter = shadowmap_filter;
 		sampler.minFilter = shadowmap_filter;
@@ -810,7 +620,7 @@ public:
 
 		VK_CHECK_RESULT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &geometryFrameBuf.renderPass));
 
-		std::array<VkImageView,6> attachments;
+		std::array<VkImageView, 6> attachments;
 		attachments[0] = geometryFrameBuf.position.view;
 		attachments[1] = geometryFrameBuf.normal.view;
 		attachments[2] = geometryFrameBuf.albedo.view;
@@ -917,7 +727,7 @@ public:
 		VkCommandBufferBeginInfo cmdBufInfo = vks::initializers::commandBufferBeginInfo();
 
 		// Clear values for all attachments written in the fragment shader
-		std::array<VkClearValue,6> clearValues;
+		std::array<VkClearValue, 6> clearValues;
 		clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 		clearValues[1].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 		clearValues[2].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
@@ -1181,7 +991,7 @@ public:
 	void createBottomLevelAccelerationStructure()
 	{
 		// Use transform matrices from the glTF nodes
- 		std::vector<VkTransformMatrixKHR> transformMatrices{};
+		std::vector<VkTransformMatrixKHR> transformMatrices{};
 		for (auto node : scene.linearNodes) {
 			if (node->mesh) {
 				for (auto primitive : node->mesh->primitives) {
@@ -1259,7 +1069,7 @@ public:
 						//Y&Y added begin
 						geometryNode.reflectance = primitive->material.Kr;
 						geometryNode.refractance = primitive->material.Kt;
-						geometryNode.ior= primitive->material.ior;
+						geometryNode.ior = primitive->material.ior;
 						//Y&Y added end
 						// @todo: map material id to global texture array
 						geometryNodes.push_back(geometryNode);
@@ -1415,8 +1225,8 @@ public:
 		accelerationBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
 		accelerationBuildGeometryInfo.scratchData.deviceAddress = scratchBuffer.deviceAddress;
 
-		VkAccelerationStructureBuildRangeInfoKHR accelerationStructureBuildRangeInfo{};	
-		accelerationStructureBuildRangeInfo.primitiveCount = primitive_count;	
+		VkAccelerationStructureBuildRangeInfoKHR accelerationStructureBuildRangeInfo{};
+		accelerationStructureBuildRangeInfo.primitiveCount = primitive_count;
 		accelerationStructureBuildRangeInfo.primitiveOffset = 0;
 		accelerationStructureBuildRangeInfo.firstVertex = 0;
 		accelerationStructureBuildRangeInfo.transformOffset = 0;
@@ -1457,7 +1267,7 @@ public:
 	{
 		if (resized)
 		{
-			//handleResize();
+			handleResize();
 		}
 
 		VkCommandBufferBeginInfo cmdBufInfo = vks::initializers::commandBufferBeginInfo();
@@ -1537,13 +1347,13 @@ public:
 
 	void createDescriptorSets()
 	{
-		int imageSamplerCount = 0;	
+		int imageSamplerCount = 0;
 		int materialCount = 0;
-		int uboCount = 1;	
+		int uboCount = 1;
 		for (auto& material : scene.materials) {
-			imageSamplerCount += 4;	
+			imageSamplerCount += 4;
 			materialCount++;
-            uboCount++;
+			uboCount++;
 		}
 
 		// Pool
@@ -1572,6 +1382,7 @@ public:
 
 		// [Pass 0] 
 		setLayoutBindings = {
+			// Binding 0 : [shadowmap.vert] 
 			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0)
 		};
 		descriptorSetLayoutCI = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
@@ -1676,7 +1487,7 @@ public:
 
 		descriptorSetLayoutCI.pNext = &setLayoutBindingFlags;
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCI, nullptr, &descriptorSetLayouts.composition));
-		
+
 		allocInfo = vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayouts.composition, 1);
 
 		// Image descriptors for the offscreen color attachments
@@ -1767,6 +1578,7 @@ public:
 				shadowmapFrameBuf.depthSampler,
 				shadowmapFrameBuf.depth.view,
 				VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
+		writeDescriptorSets.push_back(vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10, &shadowMapDescriptor));
 
 		// Binding 11: All images used by the glTF model
 		VkWriteDescriptorSet writeDescriptorImgArray{};
@@ -1858,7 +1670,7 @@ public:
 		rasterizationState.cullMode = VK_CULL_MODE_NONE;
 		rasterizationState.depthBiasEnable = VK_TRUE;
 		colorBlendState.attachmentCount = 0;
-		
+
 		pipelineCreateInfo.pInputAssemblyState = &inputAssemblyState;
 		pipelineCreateInfo.pRasterizationState = &rasterizationState;
 		pipelineCreateInfo.pColorBlendState = &colorBlendState;
@@ -1880,7 +1692,7 @@ public:
 		shaderStages[1] = loadShader(getShadersPath() + DIR_PATH + "mrt.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
 		pipelineCreateInfo = vks::initializers::pipelineCreateInfo(pipelineLayouts.offscreen, renderPass);
-		
+
 		rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
 		rasterizationState.depthBiasEnable = VK_FALSE;
 		std::array<VkPipelineColorBlendAttachmentState, 5> blendAttachmentStates = {
@@ -1903,7 +1715,7 @@ public:
 		pipelineCreateInfo.pViewportState = &viewportState;
 		pipelineCreateInfo.pDepthStencilState = &depthStencilState;
 		pipelineCreateInfo.pDynamicState = &dynamicState;
-		pipelineCreateInfo.pVertexInputState = vkglTF::Vertex::getPipelineVertexInputState({ vkglTF::VertexComponent::Position, vkglTF::VertexComponent::UV, vkglTF::VertexComponent::Normal, vkglTF::VertexComponent::Tangent , vkglTF::VertexComponent::ObjectID });
+		pipelineCreateInfo.pVertexInputState = vkglTF::Vertex::getPipelineVertexInputState({ vkglTF::VertexComponent::Position, vkglTF::VertexComponent::UV, vkglTF::VertexComponent::Normal, vkglTF::VertexComponent::Color, vkglTF::VertexComponent::Tangent , vkglTF::VertexComponent::ObjectID });
 		pipelineCreateInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
 		pipelineCreateInfo.pStages = shaderStages.data();
 		pipelineCreateInfo.renderPass = geometryFrameBuf.renderPass;
@@ -1921,7 +1733,7 @@ public:
 			shaderStagesRT.push_back(loadShader(getShadersPath() + DIR_PATH + "anyhit.rahit.spv", VK_SHADER_STAGE_ANY_HIT_BIT_KHR));
 			anyHitIdx = static_cast<uint32_t>(shaderStagesRT.size()) - 1;
 		}
-		
+
 		// Ray generation group
 		{
 			shaderStagesRT.push_back(loadShader(getShadersPath() + DIR_PATH + "raygen.rgen.spv", VK_SHADER_STAGE_RAYGEN_BIT_KHR));
@@ -1990,16 +1802,16 @@ public:
 
 		// Offscreen vertex shader
 		VK_CHECK_RESULT(vulkanDevice->createBuffer(
-			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-			&uniformBuffers.offscreen, 
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			&uniformBuffers.offscreen,
 			sizeof(UniformDataOffscreen)));
 
 		// Ray tracing shaders
 		VK_CHECK_RESULT(vulkanDevice->createBuffer(
-			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-			&uniformBuffers.composition, 
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			&uniformBuffers.composition,
 			sizeof(UniformDataComposition)));
 
 		// Map persistent
@@ -2040,9 +1852,7 @@ public:
 	{
 		uniformDataComposition.projInverse = glm::inverse(camera.matrices.perspective);
 		uniformDataComposition.viewInverse = glm::inverse(camera.matrices.view);
-		//shyun added begin
 		uniformDataComposition.depthBiasMVP = uniformDataShadowmap.depthMVP;
-		//shyun added end
 		// This value is used to accumulate multiple frames into the finale picture
 		// It's required as ray tracing needs to do multiple passes for transparency
 		// In this sample we use noise offset by this frame index to shoot rays for transparency into different directions
@@ -2052,10 +1862,10 @@ public:
 #if ASSET == 0
 		uniformDataComposition.lightPos[0] = glm::vec4(0.0f + cos(glm::radians(timer * 360.0f)) * 50.0f,
 			100.0f, 0.0f + sin(glm::radians(timer * 360.0f)) * 15.0f, 1.0f);
-		printf("%f %f %f\n", uniformDataComposition.lightPos[0].x, uniformDataComposition.lightPos[0].y, uniformDataComposition.lightPos[0].z);
 #elif ASSET == 1
-		uniformDataComposition.lightPos[0] = glm::vec4(-0.911594f, 3.861007f, -1.508170f, 1.0f);
+		uniformDataComposition.lightPos[0] = glm::vec4(1.0f, 100.0f, 0.0f, 1.0f);
 #endif
+
 		memcpy(uniformBuffers.composition.mapped, &uniformDataComposition, sizeof(uniformDataComposition));
 	}
 
@@ -2080,7 +1890,13 @@ public:
 	{
 		// Create one command buffer for each swap chain image and reuse for rendering
 		shadowmapCmdBuffers.resize(swapChain.imageCount);
-		VkCommandBufferAllocateInfo cmdBufAllocateInfo = vks::initializers::commandBufferAllocateInfo(cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, static_cast<uint32_t>(shadowmapCmdBuffers.size()));
+
+		VkCommandBufferAllocateInfo cmdBufAllocateInfo =
+			vks::initializers::commandBufferAllocateInfo(
+				cmdPool,
+				VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+				static_cast<uint32_t>(shadowmapCmdBuffers.size()));
+
 		VK_CHECK_RESULT(vkAllocateCommandBuffers(device, &cmdBufAllocateInfo, shadowmapCmdBuffers.data()));
 	}
 
@@ -2088,180 +1904,14 @@ public:
 	{
 		// Create one command buffer for each swap chain image and reuse for rendering
 		geometryCmdBuffers.resize(swapChain.imageCount);
-		VkCommandBufferAllocateInfo cmdBufAllocateInfo = vks::initializers::commandBufferAllocateInfo(cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, static_cast<uint32_t>(geometryCmdBuffers.size()));
+
+		VkCommandBufferAllocateInfo cmdBufAllocateInfo =
+			vks::initializers::commandBufferAllocateInfo(
+				cmdPool,
+				VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+				static_cast<uint32_t>(geometryCmdBuffers.size()));
+
 		VK_CHECK_RESULT(vkAllocateCommandBuffers(device, &cmdBufAllocateInfo, geometryCmdBuffers.data()));
-	}
-
-	void createExternalBuffer()
-	{
-		// Create the height map cuda will write to
-		size_t bufferSize = width * height * 4 * sizeof(float);
-		//createExternalBuffer(
-		//	bufferSize,
-		//	VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-		//	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, getDefaultMemHandleType(),
-		//	m_heightBuffer, m_heightMemory);
-	}
-
-	void createStream(cudaStream_t* pStream, unsigned int flags)
-	{
-		CUDA_CALL(cudaStreamCreateWithFlags(pStream, flags));
-	}
-
-	void createExternalSemaphore(VkSemaphore& semaphore, VkExternalSemaphoreHandleTypeFlagBits handleType)
-	{
-		VkSemaphoreCreateInfo semaphoreCreateInfo = vks::initializers::semaphoreCreateInfo();
-		VkExportSemaphoreCreateInfoKHR exportSemaphoreCreateInfo = {};
-		exportSemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO_KHR;
-
-		VkSemaphoreTypeCreateInfo timelineCreateInfo;
-		timelineCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
-		timelineCreateInfo.pNext = NULL;
-		timelineCreateInfo.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
-		timelineCreateInfo.initialValue = 0;
-		exportSemaphoreCreateInfo.pNext = &timelineCreateInfo;
-		exportSemaphoreCreateInfo.handleTypes = handleType;
-		semaphoreCreateInfo.pNext = &exportSemaphoreCreateInfo;
-
-		VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &semaphore));
-	}
-
-	void cudaVkImportImageMem() {
-		cudaExternalMemoryHandleDesc cudaExtMemHandleDesc;
-		memset(&cudaExtMemHandleDesc, 0, sizeof(cudaExtMemHandleDesc));
-#ifdef _WIN64
-		cudaExtMemHandleDesc.type =
-			IsWindows8OrGreater() ? cudaExternalMemoryHandleTypeOpaqueWin32
-			: cudaExternalMemoryHandleTypeOpaqueWin32Kmt;
-		cudaExtMemHandleDesc.handle.win32.handle = getVkImageMemHandle(
-			IsWindows8OrGreater()
-			? VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT
-			: VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT);
-#else
-		cudaExtMemHandleDesc.type = cudaExternalMemoryHandleTypeOpaqueFd;
-
-		cudaExtMemHandleDesc.handle.fd =
-			getVkImageMemHandle(VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR);
-#endif
-		cudaExtMemHandleDesc.size = totalImageMemSize;
-
-		CUDA_CALL(cudaImportExternalMemory(&cudaExtMemImageBuffer,
-			&cudaExtMemHandleDesc));
-
-		cudaExternalMemoryMipmappedArrayDesc externalMemoryMipmappedArrayDesc;
-
-		memset(&externalMemoryMipmappedArrayDesc, 0,
-			sizeof(externalMemoryMipmappedArrayDesc));
-
-		cudaExtent extent = make_cudaExtent(imageWidth, imageHeight, 0);
-		cudaChannelFormatDesc formatDesc;
-		formatDesc.x = 8;
-		formatDesc.y = 8;
-		formatDesc.z = 8;
-		formatDesc.w = 8;
-		formatDesc.f = cudaChannelFormatKindUnsigned;
-
-		externalMemoryMipmappedArrayDesc.offset = 0;
-		externalMemoryMipmappedArrayDesc.formatDesc = formatDesc;
-		externalMemoryMipmappedArrayDesc.extent = extent;
-		externalMemoryMipmappedArrayDesc.flags = 0;
-		externalMemoryMipmappedArrayDesc.numLevels = mipLevels;
-
-		CUDA_CALL(cudaExternalMemoryGetMappedMipmappedArray(
-			&cudaMipmappedImageArray, cudaExtMemImageBuffer,
-			&externalMemoryMipmappedArrayDesc));
-
-		CUDA_CALL(cudaMallocMipmappedArray(&cudaMipmappedImageArrayTemp,
-			&formatDesc, extent, mipLevels));
-		CUDA_CALL(cudaMallocMipmappedArray(&cudaMipmappedImageArrayOrig,
-			&formatDesc, extent, mipLevels));
-
-		for (int mipLevelIdx = 0; mipLevelIdx < mipLevels; mipLevelIdx++) {
-			cudaArray_t cudaMipLevelArray, cudaMipLevelArrayTemp,
-				cudaMipLevelArrayOrig;
-			cudaResourceDesc resourceDesc;
-
-			CUDA_CALL(cudaGetMipmappedArrayLevel(
-				&cudaMipLevelArray, cudaMipmappedImageArray, mipLevelIdx));
-			CUDA_CALL(cudaGetMipmappedArrayLevel(
-				&cudaMipLevelArrayTemp, cudaMipmappedImageArrayTemp, mipLevelIdx));
-			CUDA_CALL(cudaGetMipmappedArrayLevel(
-				&cudaMipLevelArrayOrig, cudaMipmappedImageArrayOrig, mipLevelIdx));
-
-			uint32_t width =
-				(imageWidth >> mipLevelIdx) ? (imageWidth >> mipLevelIdx) : 1;
-			uint32_t height =
-				(imageHeight >> mipLevelIdx) ? (imageHeight >> mipLevelIdx) : 1;
-			CUDA_CALL(cudaMemcpy2DArrayToArray(
-				cudaMipLevelArrayOrig, 0, 0, cudaMipLevelArray, 0, 0,
-				width * sizeof(uchar4), height, cudaMemcpyDeviceToDevice));
-
-			memset(&resourceDesc, 0, sizeof(resourceDesc));
-			resourceDesc.resType = cudaResourceTypeArray;
-			resourceDesc.res.array.array = cudaMipLevelArray;
-
-			cudaSurfaceObject_t surfaceObject;
-			CUDA_CALL(cudaCreateSurfaceObject(&surfaceObject, &resourceDesc));
-
-			surfaceObjectList.push_back(surfaceObject);
-
-			memset(&resourceDesc, 0, sizeof(resourceDesc));
-			resourceDesc.resType = cudaResourceTypeArray;
-			resourceDesc.res.array.array = cudaMipLevelArrayTemp;
-
-			cudaSurfaceObject_t surfaceObjectTemp;
-			checkCudaErrors(
-				cudaCreateSurfaceObject(&surfaceObjectTemp, &resourceDesc));
-			surfaceObjectListTemp.push_back(surfaceObjectTemp);
-		}
-
-		cudaResourceDesc resDescr;
-		memset(&resDescr, 0, sizeof(cudaResourceDesc));
-
-		resDescr.resType = cudaResourceTypeMipmappedArray;
-		resDescr.res.mipmap.mipmap = cudaMipmappedImageArrayOrig;
-
-		cudaTextureDesc texDescr;
-		memset(&texDescr, 0, sizeof(cudaTextureDesc));
-
-		texDescr.normalizedCoords = true;
-		texDescr.filterMode = cudaFilterModeLinear;
-		texDescr.mipmapFilterMode = cudaFilterModeLinear;
-
-		texDescr.addressMode[0] = cudaAddressModeWrap;
-		texDescr.addressMode[1] = cudaAddressModeWrap;
-
-		texDescr.maxMipmapLevelClamp = float(mipLevels - 1);
-
-		texDescr.readMode = cudaReadModeNormalizedFloat;
-
-		CUDA_CALL(cudaCreateTextureObject(&textureObjMipMapInput, &resDescr,
-			&texDescr, NULL));
-
-		CUDA_CALL(cudaMalloc((void**)&d_surfaceObjectList,
-			sizeof(cudaSurfaceObject_t) * mipLevels));
-		CUDA_CALL(cudaMalloc((void**)&d_surfaceObjectListTemp,
-			sizeof(cudaSurfaceObject_t) * mipLevels));
-
-		CUDA_CALL(cudaMemcpy(d_surfaceObjectList, surfaceObjectList.data(),
-			sizeof(cudaSurfaceObject_t) * mipLevels,
-			cudaMemcpyHostToDevice));
-		CUDA_CALL(cudaMemcpy(
-			d_surfaceObjectListTemp, surfaceObjectListTemp.data(),
-			sizeof(cudaSurfaceObject_t) * mipLevels, cudaMemcpyHostToDevice));
-
-		printf("CUDA Kernel Vulkan image buffer\n");
-	}
-
-	void initCuda()
-	{
-		createStream(&externalMemoryObject.m_stream, cudaStreamNonBlocking);
-		createExternalBuffer();
-		//importCudaExternalMemory((void**)&m_cudaHeightMap, m_cudaVertMem,
-		//	m_heightMemory, nVerts * sizeof(*m_cudaHeightMap),
-		//	getDefaultMemHandleType());
-		createExternalSemaphore(externalMemoryObject.m_vkTimelineSemaphore, getDefaultSemaphoreHandleType());
-		importCudaExternalSemaphore(externalMemoryObject.m_cudaTimelineSemaphore, externalMemoryObject.m_vkTimelineSemaphore,getDefaultSemaphoreHandleType());
 	}
 
 	void prepare()
@@ -2317,26 +1967,6 @@ public:
 		submitInfo.pCommandBuffers = &geometryCmdBuffers[currentBuffer];
 		VkResult result1 = vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
 
-		static uint64_t waitValue = 1;
-		static uint64_t signalValue = 2;
-
-		cudaExternalSemaphoreWaitParams waitParams = {};
-		waitParams.flags = 0;
-		waitParams.params.fence.value = waitValue;
-
-		cudaExternalSemaphoreSignalParams signalParams = {};
-		signalParams.flags = 0;
-		signalParams.params.fence.value = signalValue;
-
-		CUDA_CALL(cudaWaitExternalSemaphoresAsync(&externalMemoryObject.m_cudaTimelineSemaphore, &waitParams, 1, externalMemoryObject.m_stream));
-
-
-
-		CUDA_CALL(cudaSignalExternalSemaphoresAsync(&externalMemoryObject.m_cudaTimelineSemaphore, &signalParams, 1, externalMemoryObject.m_stream));
-
-		waitValue += 2;
-		signalValue += 2;
-
 		submitInfo.pNext = NULL;
 		submitInfo.pWaitDstStageMask = &lightingWaitStages;
 		submitInfo.waitSemaphoreCount = 1;
@@ -2348,6 +1978,8 @@ public:
 		VkResult result2 = vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
 
 		VulkanRTBase::submitFrame();
+
+		//currentBuffer = (currentBuffer + 1) % 3;
 	}
 
 	virtual void render()
