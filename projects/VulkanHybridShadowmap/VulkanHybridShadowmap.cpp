@@ -21,16 +21,6 @@
 #include "../../base/Define.h"
 #define DIR_PATH "VulkanHybridShadowmap/"
 
-#define CUDA_CALL(x) {			\
-	const cudaError_t a = (x);	\
-	if (a != cudaSuccess)		\
-	{							\
-		printf("\nCuda Error: %s (err_num=%d) at line:%d\n", cudaGetErrorString(a), a, __LINE__); \
-		cudaDeviceReset();		\
-		assert(0);				\
-	}							\
-}
-
 static __inline__ struct cudaExtent make_cudaExtent(size_t w, size_t h, size_t d)
 {
 	struct cudaExtent e;
@@ -118,6 +108,11 @@ public:
 
 	float lightFOV = 45.0f;
 #elif ASSET == 1
+	float zNear = 1.0f;
+	float zFar = 400.0f;
+
+	float lightFOV = 100.0f;
+#elif ASSET == 2
 	float zNear = 1.0f;
 	float zFar = 400.0f;
 
@@ -274,8 +269,7 @@ public:
 #endif
 	/// <CUDA objects>
 	cudaExternalMemory_t cudaExtMemImageBuffer;
-	cudaMipmappedArray_t cudaMipmappedImageArray, cudaMipmappedImageArrayTemp,
-		cudaMipmappedImageArrayOrig;
+	cudaMipmappedArray_t cudaMipmappedImageArrayOrig, cudaMipmappedImageArrayEdge;
 	std::vector<cudaSurfaceObject_t> surfaceObjectList, surfaceObjectListTemp;
 	cudaSurfaceObject_t* d_surfaceObjectList, * d_surfaceObjectListTemp;
 	cudaTextureObject_t textureObjMipMapInput;
@@ -317,6 +311,17 @@ public:
 #elif VIEW == 2
 		camera.setTranslation(glm::vec3(4.291043, 4.683933, -1.352913));
 		camera.setRotation(glm::vec3(-20.874960, 106.026215, 0.000000));
+#endif
+#elif ASSET == 2
+#if VIEW == 0
+		camera.setTranslation(glm::vec3(-2.039184, -2.108208, 13.222129));
+		camera.setRotation(glm::vec3(9.474999, 346.226501, 0.000000));
+#elif VIEW == 1
+		camera.setTranslation(glm::vec3(3.786976, -1.408663, -4.825589));
+		camera.setRotation(glm::vec3(2.899944, 504.574402, 0.000000));
+#elif VIEW == 2
+		camera.setTranslation(glm::vec3(-4.241950, 2.714610, -3.181164));
+		camera.setRotation(glm::vec3(-41.275059, 595.162048, 0.000000));
 #endif
 #endif
 		enableExtensions();
@@ -419,9 +424,8 @@ public:
 			/// <External Memory Use>
 			CUDA_CALL(cudaFree(d_surfaceObjectList));
 			CUDA_CALL(cudaFree(d_surfaceObjectListTemp));
-			CUDA_CALL(cudaFreeMipmappedArray(cudaMipmappedImageArrayTemp));
+			CUDA_CALL(cudaFreeMipmappedArray(cudaMipmappedImageArrayEdge));
 			CUDA_CALL(cudaFreeMipmappedArray(cudaMipmappedImageArrayOrig));
-			CUDA_CALL(cudaFreeMipmappedArray(cudaMipmappedImageArray));
 			CUDA_CALL(cudaDestroyTextureObject(textureObjMipMapInput));
 			CUDA_CALL(cudaDestroyExternalMemory(cudaExtMemImageBuffer));
 			CUDA_CALL(cudaDestroyExternalSemaphore(cudaExtCudaUpdateVkSemaphore));
@@ -473,20 +477,16 @@ public:
 		return handle;
 	}
 	HANDLE getVkSemaphoreHandle(
-		VkExternalSemaphoreHandleTypeFlagBitsKHR externalSemaphoreHandleType,
-		VkSemaphore& semVkCuda) {
+		VkExternalSemaphoreHandleTypeFlagBitsKHR externalSemaphoreHandleType, VkSemaphore& semVkCuda) {
 		HANDLE handle;
 
 		VkSemaphoreGetWin32HandleInfoKHR vulkanSemaphoreGetWin32HandleInfoKHR = {};
-		vulkanSemaphoreGetWin32HandleInfoKHR.sType =
-			VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR;
+		vulkanSemaphoreGetWin32HandleInfoKHR.sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR;
 		vulkanSemaphoreGetWin32HandleInfoKHR.pNext = NULL;
 		vulkanSemaphoreGetWin32HandleInfoKHR.semaphore = semVkCuda;
-		vulkanSemaphoreGetWin32HandleInfoKHR.handleType =
-			externalSemaphoreHandleType;
+		vulkanSemaphoreGetWin32HandleInfoKHR.handleType = externalSemaphoreHandleType;
 
-		fpGetSemaphoreWin32HandleKHR(device, &vulkanSemaphoreGetWin32HandleInfoKHR,
-			&handle);
+		fpGetSemaphoreWin32HandleKHR(device, &vulkanSemaphoreGetWin32HandleInfoKHR, &handle);
 
 		return handle;
 	}
@@ -565,6 +565,41 @@ public:
 		vkQueueWaitIdle(queue);
 
 		vkFreeCommandBuffers(device, cmdPool, 1, &commandBuffer);
+	}
+
+	void getKhrExtensionsFn() {
+#ifdef _WIN64
+
+		fpGetSemaphoreWin32HandleKHR = (PFN_vkGetSemaphoreWin32HandleKHR)vkGetDeviceProcAddr(device, "vkGetSemaphoreWin32HandleKHR");
+		if (fpGetSemaphoreWin32HandleKHR == NULL) {
+			throw std::runtime_error("Vulkan: Proc address for \"vkGetSemaphoreWin32HandleKHR\" not ""found.\n");
+		}
+		fpGetMemoryWin32HandleKHR =
+			(PFN_vkGetMemoryWin32HandleKHR)vkGetInstanceProcAddr(
+				instance, "vkGetMemoryWin32HandleKHR");
+		if (fpGetMemoryWin32HandleKHR == NULL) {
+			throw std::runtime_error(
+				"Vulkan: Proc address for \"vkGetMemoryWin32HandleKHR\" not "
+				"found.\n");
+	}
+#else
+		fpGetSemaphoreFdKHR = (PFN_vkGetSemaphoreFdKHR)vkGetDeviceProcAddr(
+			device, "vkGetSemaphoreFdKHR");
+		if (fpGetSemaphoreFdKHR == NULL) {
+			throw std::runtime_error(
+				"Vulkan: Proc address for \"vkGetSemaphoreFdKHR\" not found.\n");
+		}
+		fpGetMemoryFdKHR = (PFN_vkGetMemoryFdKHR)vkGetInstanceProcAddr(
+			instance, "vkGetMemoryFdKHR");
+		if (fpGetMemoryFdKHR == NULL) {
+			throw std::runtime_error(
+				"Vulkan: Proc address for \"vkGetMemoryFdKHR\" not found.\n");
+		}
+		else {
+			std::cout << "Vulkan proc address for vkGetMemoryFdKHR - "
+				<< fpGetMemoryFdKHR << std::endl;
+		}
+#endif
 	}
 	/// </External Memory Use>
 
@@ -753,6 +788,8 @@ public:
 		vulkanExportMemoryAllocateInfoKHR.handleTypes =
 			VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
 #endif
+		generateMipmaps(shadowmapFrameBuf.depth.image, shadowmapFrameBuf.depth.format);
+
 		/// </External Memory Use>
 
 		memAlloc.pNext = &vulkanExportMemoryAllocateInfoKHR;
@@ -2165,6 +2202,8 @@ public:
 			100.0f, 0.0f + sin(glm::radians(timer * 360.0f)) * 15.0f, 1.0f);
 #elif ASSET == 1
 		uniformDataComposition.lightPos[0] = glm::vec4(1.0f, 100.0f, 0.0f, 1.0f);
+#elif ASSET == 2
+		uniformDataComposition.lightPos[0] = glm::vec4(-0.911594f, 3.861007f, -1.508170f, 1.0f);
 #endif
 
 		memcpy(uniformBuffers.composition.mapped, &uniformDataComposition, sizeof(uniformDataComposition));
@@ -2237,11 +2276,9 @@ public:
 #endif
 		externalSemaphoreHandleDesc.flags = 0;
 
-		CUDA_CALL(cudaImportExternalSemaphore(&cudaExtCudaUpdateVkSemaphore,
-			&externalSemaphoreHandleDesc));
+		CUDA_CALL(cudaImportExternalSemaphore(&cudaExtCudaUpdateVkSemaphore, &externalSemaphoreHandleDesc));
 
-		memset(&externalSemaphoreHandleDesc, 0,
-			sizeof(externalSemaphoreHandleDesc));
+		memset(&externalSemaphoreHandleDesc, 0, sizeof(externalSemaphoreHandleDesc));
 #ifdef _WIN64
 		externalSemaphoreHandleDesc.type =
 			IsWindows8OrGreater() ? cudaExternalSemaphoreHandleTypeOpaqueWin32
@@ -2304,34 +2341,20 @@ public:
 		externalMemoryMipmappedArrayDesc.flags = 0;
 		externalMemoryMipmappedArrayDesc.numLevels = mipLevels;
 
-		CUDA_CALL(cudaExternalMemoryGetMappedMipmappedArray(
-			&cudaMipmappedImageArray, cudaExtMemImageBuffer,
-			&externalMemoryMipmappedArrayDesc));
+		CUDA_CALL(cudaExternalMemoryGetMappedMipmappedArray(&cudaMipmappedImageArrayOrig, cudaExtMemImageBuffer, &externalMemoryMipmappedArrayDesc));
 
-		CUDA_CALL(cudaMallocMipmappedArray(&cudaMipmappedImageArrayTemp,
-			&formatDesc, extent, mipLevels));
-		CUDA_CALL(cudaMallocMipmappedArray(&cudaMipmappedImageArrayOrig,
-			&formatDesc, extent, mipLevels));
+		CUDA_CALL(cudaMallocMipmappedArray(&cudaMipmappedImageArrayEdge, &formatDesc, extent, mipLevels));
 
 		for (int mipLevelIdx = 0; mipLevelIdx < mipLevels; mipLevelIdx++) {
 			cudaArray_t cudaMipLevelArray, cudaMipLevelArrayTemp,
 				cudaMipLevelArrayOrig;
 			cudaResourceDesc resourceDesc;
 
-			CUDA_CALL(cudaGetMipmappedArrayLevel(
-				&cudaMipLevelArray, cudaMipmappedImageArray, mipLevelIdx));
-			CUDA_CALL(cudaGetMipmappedArrayLevel(
-				&cudaMipLevelArrayTemp, cudaMipmappedImageArrayTemp, mipLevelIdx));
-			CUDA_CALL(cudaGetMipmappedArrayLevel(
-				&cudaMipLevelArrayOrig, cudaMipmappedImageArrayOrig, mipLevelIdx));
+			CUDA_CALL(cudaGetMipmappedArrayLevel(&cudaMipLevelArray, cudaMipmappedImageArrayOrig, mipLevelIdx));
+			CUDA_CALL(cudaGetMipmappedArrayLevel(&cudaMipLevelArrayOrig, cudaMipmappedImageArrayEdge, mipLevelIdx));
 
-			uint32_t width =
-				(shadowMapSize >> mipLevelIdx) ? (shadowMapSize >> mipLevelIdx) : 1;
-			uint32_t height =
-				(shadowMapSize >> mipLevelIdx) ? (shadowMapSize >> mipLevelIdx) : 1;
-			CUDA_CALL(cudaMemcpy2DArrayToArray(
-				cudaMipLevelArrayOrig, 0, 0, cudaMipLevelArray, 0, 0,
-				width * sizeof(uchar4), height, cudaMemcpyDeviceToDevice));
+			uint32_t width = (shadowMapSize >> mipLevelIdx) ? (shadowMapSize >> mipLevelIdx) : 1;
+			uint32_t height = (shadowMapSize >> mipLevelIdx) ? (shadowMapSize >> mipLevelIdx) : 1;
 
 			memset(&resourceDesc, 0, sizeof(resourceDesc));
 			resourceDesc.resType = cudaResourceTypeArray;
@@ -2341,15 +2364,6 @@ public:
 			CUDA_CALL(cudaCreateSurfaceObject(&surfaceObject, &resourceDesc));
 
 			surfaceObjectList.push_back(surfaceObject);
-
-			memset(&resourceDesc, 0, sizeof(resourceDesc));
-			resourceDesc.resType = cudaResourceTypeArray;
-			resourceDesc.res.array.array = cudaMipLevelArrayTemp;
-
-			cudaSurfaceObject_t surfaceObjectTemp;
-			CUDA_CALL(
-				cudaCreateSurfaceObject(&surfaceObjectTemp, &resourceDesc));
-			surfaceObjectListTemp.push_back(surfaceObjectTemp);
 		}
 
 		cudaResourceDesc resDescr;
@@ -2370,22 +2384,13 @@ public:
 
 		texDescr.maxMipmapLevelClamp = float(mipLevels - 1);
 
-		texDescr.readMode = cudaReadModeNormalizedFloat;
+		texDescr.readMode = cudaReadModeElementType;
 
-		CUDA_CALL(cudaCreateTextureObject(&textureObjMipMapInput, &resDescr,
-			&texDescr, NULL));
+		CUDA_CALL(cudaCreateTextureObject(&textureObjMipMapInput, &resDescr, &texDescr, NULL));
 
-		CUDA_CALL(cudaMalloc((void**)&d_surfaceObjectList,
-			sizeof(cudaSurfaceObject_t) * mipLevels));
-		CUDA_CALL(cudaMalloc((void**)&d_surfaceObjectListTemp,
-			sizeof(cudaSurfaceObject_t) * mipLevels));
+		CUDA_CALL(cudaMalloc((void**)&d_surfaceObjectList, sizeof(cudaSurfaceObject_t) * mipLevels));
 
-		CUDA_CALL(cudaMemcpy(d_surfaceObjectList, surfaceObjectList.data(),
-			sizeof(cudaSurfaceObject_t) * mipLevels,
-			cudaMemcpyHostToDevice));
-		CUDA_CALL(cudaMemcpy(
-			d_surfaceObjectListTemp, surfaceObjectListTemp.data(),
-			sizeof(cudaSurfaceObject_t) * mipLevels, cudaMemcpyHostToDevice));
+		CUDA_CALL(cudaMemcpy(d_surfaceObjectList, surfaceObjectList.data(), sizeof(cudaSurfaceObject_t) * mipLevels, cudaMemcpyHostToDevice));
 
 		printf("CUDA Kernel Vulkan image buffer\n");
 	}
@@ -2506,15 +2511,6 @@ public:
 		}
 	}
 
-	void cudaVkSemaphoreSignal(cudaExternalSemaphore_t& extSemaphore) {
-		cudaExternalSemaphoreSignalParams extSemaphoreSignalParams;
-		memset(&extSemaphoreSignalParams, 0, sizeof(extSemaphoreSignalParams));
-
-		extSemaphoreSignalParams.params.fence.value = 0;
-		extSemaphoreSignalParams.flags = 0;
-		CUDA_CALL(cudaSignalExternalSemaphoresAsync(&extSemaphore, &extSemaphoreSignalParams, 1, streamToRun));
-	}
-
 	void cudaVkSemaphoreWait(cudaExternalSemaphore_t& extSemaphore) {
 		cudaExternalSemaphoreWaitParams extSemaphoreWaitParams;
 
@@ -2526,20 +2522,34 @@ public:
 		CUDA_CALL(cudaWaitExternalSemaphoresAsync(&extSemaphore, &extSemaphoreWaitParams, 1, streamToRun));
 	}
 
+	void cudaVkSemaphoreSignal(cudaExternalSemaphore_t& extSemaphore) {
+		cudaExternalSemaphoreSignalParams extSemaphoreSignalParams;
+		memset(&extSemaphoreSignalParams, 0, sizeof(extSemaphoreSignalParams));
+
+		extSemaphoreSignalParams.params.fence.value = 0;
+		extSemaphoreSignalParams.flags = 0;
+		CUDA_CALL(cudaSignalExternalSemaphoresAsync(&extSemaphore, &extSemaphoreSignalParams, 1, streamToRun));
+	}
+
+	void initCuda() {
+		CUDA_CALL(cudaStreamCreate(&streamToRun));
+		cudaVkImportImageMem();
+		cudaVkImportSemaphore();
+	}
+
+	void cudaUpdateVkImage() {
+		cudaVkSemaphoreWait(cudaExtVkUpdateCudaSemaphore);
+
+		sobelFilter(d_surfaceObjectList, textureObjMipMapInput, streamToRun, mipLevels, shadowMapSize, shadowMapSize);
+
+		//cudaVkSemaphoreSignal(cudaExtCudaUpdateVkSemaphore);
+	}
+
 	/// </External Memory Use>
 
 	void prepare()
 	{
 		VulkanRTCommon::prepare();
-
-		fpGetMemoryWin32HandleKHR =
-			(PFN_vkGetMemoryWin32HandleKHR)vkGetInstanceProcAddr(
-				instance, "vkGetMemoryWin32HandleKHR");
-		if (fpGetMemoryWin32HandleKHR == NULL) {
-			throw std::runtime_error(
-				"Vulkan: Proc address for \"vkGetMemoryWin32HandleKHR\" not "
-				"found.\n");
-		}
 
 		createShadowmapCommandBuffers();
 		createGeometryCommandBuffers();
@@ -2564,6 +2574,12 @@ public:
 		buildGeometryCommandBuffer();
 		buildCommandBuffers();
 
+		/// <External Memory Use>
+		getKhrExtensionsFn();
+		createSyncObjectsExt();
+		initCuda();
+		/// </External Memory Use>
+
 		prepared = true;
 	}
 
@@ -2586,14 +2602,18 @@ public:
 		submitInfo.waitSemaphoreCount = 1;
 		submitInfo.pWaitSemaphores = &shadowmapSemaphore;
 		submitInfo.signalSemaphoreCount = 1;
+		//submitInfo.pSignalSemaphores = &vkUpdateCudaSemaphore;
 		submitInfo.pSignalSemaphores = &offscreenSemaphore;
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &geometryCmdBuffers[currentBuffer];
 		VkResult result1 = vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
 
+		//cudaUpdateVkImage();
+
 		submitInfo.pNext = NULL;
 		submitInfo.pWaitDstStageMask = &lightingWaitStages;
 		submitInfo.waitSemaphoreCount = 1;
+		//submitInfo.pWaitSemaphores = &cudaUpdateVkSemaphore;
 		submitInfo.pWaitSemaphores = &offscreenSemaphore;
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = &semaphores.renderComplete;

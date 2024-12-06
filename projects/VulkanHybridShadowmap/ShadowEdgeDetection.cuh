@@ -1,11 +1,16 @@
+#include <cuda.h>
 #include <cuda_runtime_api.h>
-#include <VersionHelpers.h>
-#include "VulkanRTCommon.h"
 
-struct ExternalMemoryObject {
-	cudaStream_t m_stream;
-	VkDeviceMemory m_vulkanMemory;
-	VkSemaphore m_vkTimelineSemaphore;
-	cudaExternalMemory_t m_cudaMemory;
-	cudaExternalSemaphore_t m_cudaTimelineSemaphore;
-};
+#define CUDA_CALL(x) {			\
+	const cudaError_t a = (x);	\
+	if (a != cudaSuccess)		\
+	{							\
+		printf("\nCuda Error: %s (err_num=%d) at line:%d\n", cudaGetErrorString(a), a, __LINE__); \
+		cudaDeviceReset();		\
+		assert(0);				\
+	}							\
+}
+
+typedef unsigned char Pixel;
+
+extern "C" void sobelFilter(cudaSurfaceObject_t* dstSurfMipMapArray, cudaTextureObject_t textureMipMapInput, cudaStream_t streamToRun, size_t mipLevels, int width, int height);

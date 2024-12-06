@@ -1,12 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <None Include="..\..\projects\VulkanHybridShadowmap\ShadowEdgeDetection.cu">
-      <Filter>Source Files</Filter>
-    </None>
-    <None Include="..\..\projects\VulkanHybridShadowmap\ShadowEdgeDetection.cuh">
-      <Filter>Source Files</Filter>
-    </None>
     <None Include="..\..\shaders\glsl\VulkanHybridShadowmap\anyhit.rahit">
       <Filter>Shaders\GLSL</Filter>
     </None>
@@ -66,10 +60,21 @@
     <Filter Include="Shaders\GLSL\include">
       <UniqueIdentifier>{b40bdac6-7353-4f25-86e5-7935f63161b0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{39f32a60-f654-43d5-9079-ec86c5de5327}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\projects\VulkanHybridShadowmap\VulkanHybridShadowmap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="..\..\projects\VulkanHybridShadowmap\ShadowEdgeDetection.cu">
+      <Filter>Source Files</Filter>
+    </CudaCompile>
+    <CudaCompile Include="..\..\projects\VulkanHybridShadowmap\ShadowEdgeDetection.cuh">
+      <Filter>Source Files</Filter>
+    </CudaCompile>
   </ItemGroup>
 </Project>

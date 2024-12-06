@@ -34,7 +34,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.4.props" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.5.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -100,6 +100,10 @@
     <ProjectReference>
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>
+    <CudaCompile>
+      <CodeGeneration>compute_89,sm_89;</CodeGeneration>
+      <Defines>WIN32</Defines>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -144,10 +148,16 @@
     <ProjectReference>
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>
+    <CudaCompile>
+      <CodeGeneration>compute_89,sm_89;</CodeGeneration>
+      <Defines>WIN32</Defines>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <None Include="..\..\projects\VulkanHybridShadowmap\ShadowEdgeDetection.cu" />
-    <None Include="..\..\projects\VulkanHybridShadowmap\ShadowEdgeDetection.cuh" />
+    <CudaCompile Include="..\..\projects\VulkanHybridShadowmap\ShadowEdgeDetection.cu">
+      <FileType>Document</FileType>
+    </CudaCompile>
+    <CudaCompile Include="..\..\projects\VulkanHybridShadowmap\ShadowEdgeDetection.cuh" />
     <None Include="..\..\shaders\glsl\base\light.glsl" />
     <None Include="..\..\shaders\glsl\base\pbr.glsl" />
     <None Include="..\..\shaders\glsl\VulkanHybridShadowmap\anyhit.rahit" />
@@ -175,6 +185,6 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.4.targets" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.5.targets" />
   </ImportGroup>
 </Project>
