@@ -17,7 +17,7 @@ const std::string getAssetPath()
 #elif defined(VK_EXAMPLE_ASSETS_DIR)
 	return VK_EXAMPLE_ASSETS_DIR;
 #else
-	return "./../assets/";
+	return "../../assets/";
 #endif
 }
 #endif
@@ -31,7 +31,7 @@ const std::string getShaderBasePath()
 #elif defined(VK_EXAMPLE_SHADERS_DIR)
 	return VK_EXAMPLE_SHADERS_DIR;
 #else
-	return "./../shaders/";
+	return "../../shaders/";
 #endif
 }
 #endif

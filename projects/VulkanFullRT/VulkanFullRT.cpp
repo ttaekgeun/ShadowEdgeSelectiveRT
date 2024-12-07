@@ -97,6 +97,17 @@ public:
 		camera.setTranslation(glm::vec3(4.291043, 4.683933, -1.352913));
 		camera.setRotation(glm::vec3(-20.874960, 106.026215, 0.000000));
 #endif
+#elif ASSET == 2
+#if VIEW == 0
+		camera.setTranslation(glm::vec3(-2.039184, -2.108208, 13.222129));
+		camera.setRotation(glm::vec3(9.474999, 346.226501, 0.000000));
+#elif VIEW == 1
+		camera.setTranslation(glm::vec3(3.786976, -1.408663, -4.825589));
+		camera.setRotation(glm::vec3(2.899944, 504.574402, 0.000000));
+#elif VIEW == 2
+		camera.setTranslation(glm::vec3(-4.241950, 2.714610, -3.181164));
+		camera.setRotation(glm::vec3(-41.275059, 595.162048, 0.000000));
+#endif
 #endif
 
 		enableExtensions();
@@ -788,6 +799,8 @@ public:
 			100.0f, 0.0f + sin(glm::radians(timer * 360.0f)) * 15.0f, 1.0f);
 #elif ASSET == 1
 		uniformData.lightPos[0] = glm::vec4(1.0f, 100.0f, 0.0f, 1.0f);
+#elif ASSET == 2
+		uniformData.lightPos[0] = glm::vec4(-0.911594f, 3.861007f, -1.508170f, 1.0f);
 #endif
 		memcpy(uniformBuffer.mapped, &uniformData, sizeof(uniformData));
 	}
@@ -1029,9 +1042,9 @@ public:
 	bool initVulkan() {
 		// Auto-compile shaders
 		// Remove 'pause' from batch file for speedy execution
-		system("cd ..\\shaders\\glsl\\base\\ && baseCompile.bat");
+		system("cd ..\\..\\shaders\\glsl\\base\\ && baseCompile.bat");
 		std::cout << "\t...base project shaders compile completed.\n";
-		system("cd ..\\shaders\\glsl\\VulkanFullRT\\ && VulkanFullRTCompile.bat");
+		system("cd ..\\..\\shaders\\glsl\\VulkanFullRT\\ && VulkanFullRTCompile.bat");
 		std::cout << "\t...Vulkan FullRT project shaders compile completed.\n";
 
 		bool result = VulkanRTBase::initVulkan();

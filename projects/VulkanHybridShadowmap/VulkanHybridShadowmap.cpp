@@ -2211,9 +2211,9 @@ public:
 	bool initVulkan() {
 		// Auto-compile shaders
 		// Remove 'pause' from batch file for speedy execution
-		system("cd ..\\shaders\\glsl\\base\\ && baseCompile.bat");
+		system("cd ..\\..\\shaders\\glsl\\base\\ && baseCompile.bat");
 		std::cout << "\t...base project shaders compile completed.\n";
-		system("cd ..\\shaders\\glsl\\VulkanHybridShadowmap\\ && VulkanHybridShadowmapCompile.bat");
+		system("cd ..\\..\\shaders\\glsl\\VulkanHybridShadowmap\\ && VulkanHybridShadowmapCompile.bat");
 		std::cout << "\t...Vulkan Hybrid Shadow map project shaders compile completed.\n";
 
 		bool result = VulkanRTBase::initVulkan();
