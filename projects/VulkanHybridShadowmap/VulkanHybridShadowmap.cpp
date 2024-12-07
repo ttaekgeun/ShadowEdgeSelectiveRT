@@ -113,10 +113,10 @@ public:
 
 	float lightFOV = 100.0f;
 #elif ASSET == 2
-	float zNear = 1.0f;
-	float zFar = 400.0f;
+	float zNear = 0.1f;
+	float zFar = 100.0f;
 
-	float lightFOV = 100.0f;
+	float lightFOV = 90.0f;
 #endif
 
 	struct UniformDataOffscreen {
@@ -735,7 +735,7 @@ public:
 		image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		image.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		/// <External Memory Use>
+//		/// <External Memory Use>
 		VkExternalMemoryImageCreateInfo vkExternalMemImageCreateInfo = {};
 		vkExternalMemImageCreateInfo.sType =
 			VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
@@ -748,7 +748,7 @@ public:
 			VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
 #endif
 		image.pNext = &vkExternalMemImageCreateInfo;
-		/// </External Memory Use>
+//		/// </External Memory Use>
 
 		VK_CHECK_RESULT(vkCreateImage(device, &image, nullptr, &shadowmapFrameBuf.depth.image));
 
@@ -791,7 +791,6 @@ public:
 		generateMipmaps(shadowmapFrameBuf.depth.image, shadowmapFrameBuf.depth.format);
 
 		/// </External Memory Use>
-
 		memAlloc.pNext = &vulkanExportMemoryAllocateInfoKHR;
 
 		VK_CHECK_RESULT(vkAllocateMemory(device, &memAlloc, nullptr, &shadowmapFrameBuf.depth.mem));
@@ -2542,7 +2541,7 @@ public:
 
 		sobelFilter(d_surfaceObjectList, textureObjMipMapInput, streamToRun, mipLevels, shadowMapSize, shadowMapSize);
 
-		//cudaVkSemaphoreSignal(cudaExtCudaUpdateVkSemaphore);
+		cudaVkSemaphoreSignal(cudaExtCudaUpdateVkSemaphore);
 	}
 
 	/// </External Memory Use>
@@ -2602,18 +2601,18 @@ public:
 		submitInfo.waitSemaphoreCount = 1;
 		submitInfo.pWaitSemaphores = &shadowmapSemaphore;
 		submitInfo.signalSemaphoreCount = 1;
-		//submitInfo.pSignalSemaphores = &vkUpdateCudaSemaphore;
+		submitInfo.pSignalSemaphores = &vkUpdateCudaSemaphore;
 		submitInfo.pSignalSemaphores = &offscreenSemaphore;
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &geometryCmdBuffers[currentBuffer];
 		VkResult result1 = vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
 
-		//cudaUpdateVkImage();
+		cudaUpdateVkImage();
 
 		submitInfo.pNext = NULL;
 		submitInfo.pWaitDstStageMask = &lightingWaitStages;
 		submitInfo.waitSemaphoreCount = 1;
-		//submitInfo.pWaitSemaphores = &cudaUpdateVkSemaphore;
+		submitInfo.pWaitSemaphores = &cudaUpdateVkSemaphore;
 		submitInfo.pWaitSemaphores = &offscreenSemaphore;
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = &semaphores.renderComplete;
@@ -2623,7 +2622,7 @@ public:
 
 		VulkanRTBase::submitFrame();
 
-		//currentBuffer = (currentBuffer + 1) % 3;
+		currentBuffer = (currentBuffer + 1) % 3;
 	}
 
 	virtual void render()
