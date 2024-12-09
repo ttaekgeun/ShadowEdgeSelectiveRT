@@ -180,6 +180,10 @@ public:
 
 	/** @brief Encapsulated physical and logical vulkan device */
 	vks::VulkanDevice *vulkanDevice;
+	/// <External Memory Use>
+	uint8_t vkDeviceUUID[VK_UUID_SIZE];
+	/// </External Memory Use>
+
 
 	/** @brief Example settings that can be changed e.g. by command line arguments */
 	struct Settings {

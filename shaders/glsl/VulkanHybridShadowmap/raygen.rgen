@@ -109,8 +109,12 @@ float filterPCF(vec4 sc)
 
 float LinearizeDepth(float depth)
 {
-  float n = 1.0f;
-  float f = 500.0f;
+//  float n = 1.0f;
+//  float f = 500.0f;
+
+    float n = 0.1f;
+  float f = 100.0f;
+
   float z = depth;
   return (2.0 * n) / (f + n - z * (f - n));	
 }
@@ -287,8 +291,8 @@ void main()
 	pbrColor = pow(pbrColor, vec3(1.0f / 2.2f));
 
 	// for shadow map debugging
-	//float depth = texture(shadowMap, inUV).r;
-	//pbrColor = vec3(1.0-LinearizeDepth(depth));
+	float depth = texture(shadowMap, inUV).r;
+	pbrColor = vec3(1.0-LinearizeDepth(depth));
 
 	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(pbrColor, 1.0f));	// write a single texel into an image.
 }

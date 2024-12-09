@@ -291,11 +291,23 @@ void VulkanRTCommon::prepare()
 {
 	VulkanRTBase::prepare();
 	// Get properties and features
+	/// <External Memory Use>
+	VkPhysicalDeviceIDProperties vkPhysicalDeviceIDProperties = {};
+	vkPhysicalDeviceIDProperties.sType =VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES;
+	vkPhysicalDeviceIDProperties.pNext = NULL;
+	/// </External Memory Use>
+
 	rayTracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+	rayTracingPipelineProperties.pNext = &vkPhysicalDeviceIDProperties;
 	VkPhysicalDeviceProperties2 deviceProperties2{};
 	deviceProperties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
 	deviceProperties2.pNext = &rayTracingPipelineProperties;
 	vkGetPhysicalDeviceProperties2(physicalDevice, &deviceProperties2);
+
+	/// <External Memory Use>
+	memcpy(vkDeviceUUID, vkPhysicalDeviceIDProperties.deviceUUID, sizeof(vkDeviceUUID));
+	/// </External Memory Use>
+
 	accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
 	VkPhysicalDeviceFeatures2 deviceFeatures2{};
 	deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;

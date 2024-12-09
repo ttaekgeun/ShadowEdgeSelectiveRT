@@ -17,6 +17,7 @@
 #include "VulkanRTCommon.h"
 #include "VulkanglTFModel.h"
 #include "ShadowEdgeDetection.cuh"
+#include <thread>
 
 #include "../../base/Define.h"
 #define DIR_PATH "VulkanHybridShadowmap/"
@@ -199,7 +200,11 @@ public:
 	// Use a smaller size on Android for performance reasons
 	const uint32_t shadowMapSize{ 1024 };
 #else
-	const uint32_t shadowMapSize{ 16384 };
+	//const uint32_t shadowMapSize{ 2048 };
+	//const uint32_t shadowMapSize{ 16384 };
+	//const uint32_t shadowMapSize{ 1024 };
+	//const uint32_t shadowMapSize{ 512 };
+	const uint32_t shadowMapSize{ 128 };
 #endif
 
 	// Depth bias (and slope) are used to avoid shadowing artifacts
@@ -270,8 +275,8 @@ public:
 	/// <CUDA objects>
 	cudaExternalMemory_t cudaExtMemImageBuffer;
 	cudaMipmappedArray_t cudaMipmappedImageArrayOrig, cudaMipmappedImageArrayEdge;
-	std::vector<cudaSurfaceObject_t> surfaceObjectList, surfaceObjectListTemp;
-	cudaSurfaceObject_t* d_surfaceObjectList, * d_surfaceObjectListTemp;
+	std::vector<cudaSurfaceObject_t> surfaceObjectList;
+	cudaSurfaceObject_t* d_surfaceObjectList;
 	cudaTextureObject_t textureObjMipMapInput;
 
 	cudaExternalSemaphore_t cudaExtCudaUpdateVkSemaphore;
@@ -423,7 +428,6 @@ public:
 
 			/// <External Memory Use>
 			CUDA_CALL(cudaFree(d_surfaceObjectList));
-			CUDA_CALL(cudaFree(d_surfaceObjectListTemp));
 			CUDA_CALL(cudaFreeMipmappedArray(cudaMipmappedImageArrayEdge));
 			CUDA_CALL(cudaFreeMipmappedArray(cudaMipmappedImageArrayOrig));
 			CUDA_CALL(cudaDestroyTextureObject(textureObjMipMapInput));
@@ -732,10 +736,11 @@ public:
 		image.samples = VK_SAMPLE_COUNT_1_BIT;
 		image.tiling = VK_IMAGE_TILING_OPTIMAL;
 		image.format = shadowmapFrameBuf.depth.format;
-		image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		image.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-//		/// <External Memory Use>
+		/// <External Memory Use>
 		VkExternalMemoryImageCreateInfo vkExternalMemImageCreateInfo = {};
 		vkExternalMemImageCreateInfo.sType =
 			VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
@@ -748,7 +753,7 @@ public:
 			VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
 #endif
 		image.pNext = &vkExternalMemImageCreateInfo;
-//		/// </External Memory Use>
+		/// </External Memory Use>
 
 		VK_CHECK_RESULT(vkCreateImage(device, &image, nullptr, &shadowmapFrameBuf.depth.image));
 
@@ -2318,21 +2323,19 @@ public:
 #endif
 		cudaExtMemHandleDesc.size = totalImageMemSize;
 
-		CUDA_CALL(cudaImportExternalMemory(&cudaExtMemImageBuffer,
-			&cudaExtMemHandleDesc));
+		CUDA_CALL(cudaImportExternalMemory(&cudaExtMemImageBuffer, &cudaExtMemHandleDesc));
 
 		cudaExternalMemoryMipmappedArrayDesc externalMemoryMipmappedArrayDesc;
 
-		memset(&externalMemoryMipmappedArrayDesc, 0,
-			sizeof(externalMemoryMipmappedArrayDesc));
+		memset(&externalMemoryMipmappedArrayDesc, 0, sizeof(externalMemoryMipmappedArrayDesc));
 
-		cudaExtent extent = make_cudaExtent(static_cast<size_t>(shadowMapSize), shadowMapSize, 0);
+		cudaExtent extent = make_cudaExtent(static_cast<size_t>(shadowMapSize), static_cast<size_t>(shadowMapSize), 0);
 		cudaChannelFormatDesc formatDesc;
 		formatDesc.x = 16;
 		formatDesc.y = 0;
 		formatDesc.z = 0;
 		formatDesc.w = 0;
-		formatDesc.f = cudaChannelFormatKindFloat;
+		formatDesc.f = cudaChannelFormatKindUnsignedNormalized16X1;
 
 		externalMemoryMipmappedArrayDesc.offset = 0;
 		externalMemoryMipmappedArrayDesc.formatDesc = formatDesc;
@@ -2340,24 +2343,19 @@ public:
 		externalMemoryMipmappedArrayDesc.flags = 0;
 		externalMemoryMipmappedArrayDesc.numLevels = mipLevels;
 
-		CUDA_CALL(cudaExternalMemoryGetMappedMipmappedArray(&cudaMipmappedImageArrayOrig, cudaExtMemImageBuffer, &externalMemoryMipmappedArrayDesc));
+		CUDA_CALL(cudaExternalMemoryGetMappedMipmappedArray(&cudaMipmappedImageArrayEdge, cudaExtMemImageBuffer, &externalMemoryMipmappedArrayDesc));
 
-		CUDA_CALL(cudaMallocMipmappedArray(&cudaMipmappedImageArrayEdge, &formatDesc, extent, mipLevels));
+		//CUDA_CALL(cudaMallocMipmappedArray(&cudaMipmappedImageArrayOrig, &formatDesc, extent, mipLevels));
 
 		for (int mipLevelIdx = 0; mipLevelIdx < mipLevels; mipLevelIdx++) {
-			cudaArray_t cudaMipLevelArray, cudaMipLevelArrayTemp,
-				cudaMipLevelArrayOrig;
+			cudaArray_t cudaMipLevelArrayEdge;
 			cudaResourceDesc resourceDesc;
 
-			CUDA_CALL(cudaGetMipmappedArrayLevel(&cudaMipLevelArray, cudaMipmappedImageArrayOrig, mipLevelIdx));
-			CUDA_CALL(cudaGetMipmappedArrayLevel(&cudaMipLevelArrayOrig, cudaMipmappedImageArrayEdge, mipLevelIdx));
-
-			uint32_t width = (shadowMapSize >> mipLevelIdx) ? (shadowMapSize >> mipLevelIdx) : 1;
-			uint32_t height = (shadowMapSize >> mipLevelIdx) ? (shadowMapSize >> mipLevelIdx) : 1;
+			CUDA_CALL(cudaGetMipmappedArrayLevel(&cudaMipLevelArrayEdge, cudaMipmappedImageArrayEdge, mipLevelIdx));
 
 			memset(&resourceDesc, 0, sizeof(resourceDesc));
 			resourceDesc.resType = cudaResourceTypeArray;
-			resourceDesc.res.array.array = cudaMipLevelArray;
+			resourceDesc.res.array.array = cudaMipLevelArrayEdge;
 
 			cudaSurfaceObject_t surfaceObject;
 			CUDA_CALL(cudaCreateSurfaceObject(&surfaceObject, &resourceDesc));
@@ -2369,21 +2367,22 @@ public:
 		memset(&resDescr, 0, sizeof(cudaResourceDesc));
 
 		resDescr.resType = cudaResourceTypeMipmappedArray;
-		resDescr.res.mipmap.mipmap = cudaMipmappedImageArrayOrig;
+		resDescr.res.mipmap.mipmap = cudaMipmappedImageArrayEdge;
 
 		cudaTextureDesc texDescr;
 		memset(&texDescr, 0, sizeof(cudaTextureDesc));
 
 		texDescr.normalizedCoords = true;
-		texDescr.filterMode = cudaFilterModeLinear;
-		texDescr.mipmapFilterMode = cudaFilterModeLinear;
+		texDescr.filterMode = cudaFilterModePoint;
+		texDescr.mipmapFilterMode = cudaFilterModePoint;
 
 		texDescr.addressMode[0] = cudaAddressModeWrap;
 		texDescr.addressMode[1] = cudaAddressModeWrap;
 
 		texDescr.maxMipmapLevelClamp = float(mipLevels - 1);
 
-		texDescr.readMode = cudaReadModeElementType;
+		//texDescr.readMode = cudaReadModeElementType;
+		texDescr.readMode = cudaReadModeNormalizedFloat;
 
 		CUDA_CALL(cudaCreateTextureObject(&textureObjMipMapInput, &resDescr, &texDescr, NULL));
 
@@ -2531,6 +2530,7 @@ public:
 	}
 
 	void initCuda() {
+		setCudaVkDevice();
 		CUDA_CALL(cudaStreamCreate(&streamToRun));
 		cudaVkImportImageMem();
 		cudaVkImportSemaphore();
@@ -2542,6 +2542,52 @@ public:
 		sobelFilter(d_surfaceObjectList, textureObjMipMapInput, streamToRun, mipLevels, shadowMapSize, shadowMapSize);
 
 		cudaVkSemaphoreSignal(cudaExtCudaUpdateVkSemaphore);
+	}
+
+	int setCudaVkDevice() {
+		int current_device = 0;
+		int device_count = 0;
+		int devices_prohibited = 0;
+
+		cudaDeviceProp deviceProp;
+		CUDA_CALL(cudaGetDeviceCount(&device_count));
+
+		if (device_count == 0) {
+			fprintf(stderr, "CUDA error: no devices supporting CUDA.\n");
+			exit(EXIT_FAILURE);
+		}
+
+		// Find the GPU which is selected by Vulkan
+		while (current_device < device_count) {
+			cudaGetDeviceProperties(&deviceProp, current_device);
+
+			if ((deviceProp.computeMode != cudaComputeModeProhibited)) {
+				// Compare the cuda device UUID with vulkan UUID
+				int ret = memcmp(&deviceProp.uuid, &vkDeviceUUID, VK_UUID_SIZE);
+				if (ret == 0) {
+					CUDA_CALL(cudaSetDevice(current_device));
+					CUDA_CALL(cudaGetDeviceProperties(&deviceProp, current_device));
+					printf("GPU Device %d: \"%s\" with compute capability %d.%d\n\n",
+						current_device, deviceProp.name, deviceProp.major,
+						deviceProp.minor);
+
+					return current_device;
+				}
+
+			}
+			else {
+				devices_prohibited++;
+			}
+
+			current_device++;
+		}
+
+		if (devices_prohibited == device_count) {
+			fprintf(stderr, "CUDA error: No Vulkan-CUDA Interop capable GPU found.\n");
+			exit(EXIT_FAILURE);
+		}
+
+		return -1;
 	}
 
 	/// </External Memory Use>
@@ -2594,7 +2640,7 @@ public:
 		submitInfo.pSignalSemaphores = &shadowmapSemaphore;
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &shadowmapCmdBuffers[currentBuffer];
-		VkResult result0 = vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+		VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
 
 		submitInfo.pNext = NULL;
 		submitInfo.pWaitDstStageMask = &geometryWaitStages;
@@ -2602,10 +2648,9 @@ public:
 		submitInfo.pWaitSemaphores = &shadowmapSemaphore;
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = &vkUpdateCudaSemaphore;
-		submitInfo.pSignalSemaphores = &offscreenSemaphore;
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &geometryCmdBuffers[currentBuffer];
-		VkResult result1 = vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+		VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
 
 		cudaUpdateVkImage();
 
@@ -2613,12 +2658,11 @@ public:
 		submitInfo.pWaitDstStageMask = &lightingWaitStages;
 		submitInfo.waitSemaphoreCount = 1;
 		submitInfo.pWaitSemaphores = &cudaUpdateVkSemaphore;
-		submitInfo.pWaitSemaphores = &offscreenSemaphore;
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = &semaphores.renderComplete;
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &drawCmdBuffers[currentBuffer];
-		VkResult result2 = vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+		VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
 
 		VulkanRTBase::submitFrame();
 

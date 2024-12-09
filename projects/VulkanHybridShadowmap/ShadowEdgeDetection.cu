@@ -1,6 +1,7 @@
-#include <stdio.h>
+﻿#include <stdio.h>
 #include <stdlib.h>
 #include <cooperative_groups.h>
+#include <cuda_fp16.h>
 #include "ShadowEdgeDetection.cuh"
 
 namespace cg = cooperative_groups;
@@ -11,7 +12,21 @@ namespace cg = cooperative_groups;
 //#define BlockWidth 80
 //#define SharedPitch 384
 //#endif
-//
+
+// convert floating point rgba color to 16-bit integer
+__device__ unsigned short FloatToUShort(float value) {
+	//rgba.x = __saturatef(rgba.x);  // clamp to [0.0, 1.0]
+	//rgba.y = __saturatef(rgba.y);
+	//rgba.z = __saturatef(rgba.z);
+	//rgba.w = __saturatef(rgba.w);
+	//return ((unsigned int)(rgba.w * 255.0f) << 24) |
+	//	((unsigned int)(rgba.z * 255.0f) << 16) |
+	//	((unsigned int)(rgba.y * 255.0f) << 8) |
+	//	((unsigned int)(rgba.x * 255.0f));
+	value = __saturatef(value);
+	return (unsigned short)(value * 65535.0f);  // 65535 == 2^16 - 1
+}
+
 //// This will output the proper CUDA error strings in the event that a CUDA host
 //// call returns an error
 //__device__ unsigned char ComputeSobel(unsigned char ul,  // upper left
@@ -135,36 +150,44 @@ namespace cg = cooperative_groups;
 
 __global__ void sobelTest(cudaSurfaceObject_t* dstSurfMipMapArray, cudaTextureObject_t textureMipMapInput, size_t mipLevels, int width, int height)
 {
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
+	unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
+	unsigned int y = blockIdx.y * blockDim.y + threadIdx.y;
+	//printf("x: %hu y: %hu\n", x, y);
 	for (uint32_t mipLevelIdx = 0; mipLevelIdx < mipLevels; mipLevelIdx++)
 	{
 		if (y < height && x < width) {
-			float4 t = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-			//t = tex2DLod<float4>(textureMipMapInput, x, y, (float)mipLevelIdx);
-			surf2Dwrite(t, dstSurfMipMapArray[mipLevelIdx], x, y);
+			float px = 1.0 / width;
+			float py = 1.0 / height;
+
+			unsigned short t = tex2DLod<unsigned short>(textureMipMapInput, x * px, y * px, (float)mipLevelIdx);
+			surf2Dwrite(t, dstSurfMipMapArray[mipLevelIdx], x * 4, y);
 		}
 	}
 }
 
 // Wrapper for the __global__ call that sets up the texture and threads
 extern "C" void sobelFilter(cudaSurfaceObject_t* dstSurfMipMapArray, cudaTextureObject_t textureMipMapInput, cudaStream_t streamToRun, size_t mipLevels, int width, int height) {
-		dim3 threads(16, 4);
-#ifndef FIXED_BLOCKWIDTH
-		int BlockWidth = 80;  // must be divisible by 16 for coalescing
-#endif
-		dim3 blocks = dim3(width / (4 * BlockWidth) + (0 != width % (4 * BlockWidth)),
-			height / threads.y + (0 != height % threads.y));
-		int SharedPitch = ~0x3f & (4 * (BlockWidth + 2 * RADIUS) + 0x3f);
-		int sharedMem = SharedPitch * (threads.y + 2 * RADIUS);
-
-		// for the shared kernel, width must be divisible by 4
-		width &= ~3;
+//		dim3 threads(16, 4);
+//#ifndef FIXED_BLOCKWIDTH
+//		int BlockWidth = 80;  // must be divisible by 16 for coalescing
+//#endif
+//		dim3 blocks = dim3(width / (4 * BlockWidth) + (0 != width % (4 * BlockWidth)),
+//			height / threads.y + (0 != height % threads.y));
+//		int SharedPitch = ~0x3f & (4 * (BlockWidth + 2 * RADIUS) + 0x3f);
+//		int sharedMem = SharedPitch * (threads.y + 2 * RADIUS);
+//
+//		// for the shared kernel, width must be divisible by 4
+//		width &= ~3;
+		dim3 threadsperBlock(32, 32);
+		//dim3 threadsperBlock(16, 16);
+		dim3 numBlocks((width + threadsperBlock.x - 1) / threadsperBlock.x,
+			(height + threadsperBlock.y - 1) / threadsperBlock.y);
 
 //		SobelShared << <blocks, threads, sharedMem >> > ((uchar4*)odata, iw,
 //#ifndef FIXED_BLOCKWIDTH
 //			BlockWidth, SharedPitch,
 //#endif
 //			iw, ih, fScale, texObject);
-		sobelTest << <blocks, threads, 0, streamToRun >> > (dstSurfMipMapArray, textureMipMapInput, mipLevels, width, height);
+		//sobelTest << <blocks, threads, 0, streamToRun >> > (dstSurfMipMapArray, textureMipMapInput, mipLevels, width, height);
+		sobelTest << <numBlocks, threadsperBlock, 0, streamToRun >> > (dstSurfMipMapArray, textureMipMapInput, mipLevels, width, height);
 }
