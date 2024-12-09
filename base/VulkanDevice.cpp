@@ -186,6 +186,7 @@ namespace vks
 		// Note that the indices may overlap depending on the implementation
 
 		const float defaultQueuePriority(0.0f);
+		const float defaultQueuePriorities[2]{ 1.0f, 1.0f };
 
 		// Graphics queue
 		if (requestedQueueTypes & VK_QUEUE_GRAPHICS_BIT)
@@ -194,8 +195,8 @@ namespace vks
 			VkDeviceQueueCreateInfo queueInfo{};
 			queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 			queueInfo.queueFamilyIndex = queueFamilyIndices.graphics;
-			queueInfo.queueCount = 1;
-			queueInfo.pQueuePriorities = &defaultQueuePriority;
+			queueInfo.queueCount = 2;
+			queueInfo.pQueuePriorities = defaultQueuePriorities;
 			queueCreateInfos.push_back(queueInfo);
 		}
 		else

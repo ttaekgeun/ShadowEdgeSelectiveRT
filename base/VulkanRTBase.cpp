@@ -1023,6 +1023,7 @@ bool VulkanRTBase::initVulkan()
 
 	// Get a graphics queue from the device
 	vkGetDeviceQueue(device, vulkanDevice->queueFamilyIndices.graphics, 0, &queue);
+	vkGetDeviceQueue(device, vulkanDevice->queueFamilyIndices.graphics, 1, &offscreenQueue);
 
 	// Find a suitable depth and/or stencil format
 	VkBool32 validFormat{ false };

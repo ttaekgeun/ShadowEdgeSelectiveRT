@@ -200,11 +200,14 @@ public:
 	// Use a smaller size on Android for performance reasons
 	const uint32_t shadowMapSize{ 1024 };
 #else
-	//const uint32_t shadowMapSize{ 2048 };
 	//const uint32_t shadowMapSize{ 16384 };
-	const uint32_t shadowMapSize{ 1024 };
+	const uint32_t shadowMapSize{ 8192 };
+	//const uint32_t shadowMapSize{ 4096 };
+	//const uint32_t shadowMapSize{ 2048 };
+	//const uint32_t shadowMapSize{ 1024 };
 	//const uint32_t shadowMapSize{ 512 };
 	//const uint32_t shadowMapSize{ 128 };
+
 #endif
 
 	// Depth bias (and slope) are used to avoid shadowing artifacts
@@ -732,8 +735,7 @@ public:
 		image.samples = VK_SAMPLE_COUNT_1_BIT;
 		image.tiling = VK_IMAGE_TILING_OPTIMAL;
 		image.format = shadowmapFrameBuf.depth.format;
-		image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		image.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
 		/// <External Memory Use>
@@ -2388,7 +2390,6 @@ public:
 		texDescr.maxMipmapLevelClamp = float(mipLevels - 1);
 
 		texDescr.readMode = cudaReadModeElementType;
-		//texDescr.readMode = cudaReadModeNormalizedFloat;
 
 		CUDA_CALL(cudaCreateTextureObject(&textureObjMipMapInput, &resDescr, &texDescr, NULL));
 
@@ -2645,7 +2646,6 @@ public:
 		VulkanRTBase::prepareFrame();
 
 		VkPipelineStageFlags offscreenWaitStages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		VkPipelineStageFlags lightingWaitStages = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
 
 		submitInfo.pNext = NULL;
 		submitInfo.pWaitDstStageMask = &offscreenWaitStages;
@@ -2660,7 +2660,7 @@ public:
 		submitInfo.pNext = NULL;
 		submitInfo.pWaitDstStageMask = &offscreenWaitStages;
 		submitInfo.waitSemaphoreCount = 1;
-		submitInfo.pWaitSemaphores = &semaphores.presentComplete;
+		submitInfo.pWaitSemaphores = &shadowDoneVkSemaphore;
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = &geometryDoneVkSemaphore;
 		submitInfo.commandBufferCount = 1;
@@ -2669,10 +2669,18 @@ public:
 
 		cudaUpdateVkImage();
 
+		VkSemaphore waitSemaphores[] = { shadowDoneVkSemaphore, geometryDoneVkSemaphore, cudaUpdateDoneVkSemaphore };
+
+		VkPipelineStageFlags lightingWaitStages[] = {
+			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR
+		};
+
 		submitInfo.pNext = NULL;
-		submitInfo.pWaitDstStageMask = &lightingWaitStages;
-		submitInfo.waitSemaphoreCount = 1;
-		submitInfo.pWaitSemaphores = &cudaUpdateDoneVkSemaphore;
+		submitInfo.pWaitDstStageMask = lightingWaitStages;
+		submitInfo.waitSemaphoreCount = 3;
+		submitInfo.pWaitSemaphores = waitSemaphores;
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = &semaphores.renderComplete;
 		submitInfo.commandBufferCount = 1;

@@ -158,8 +158,10 @@ __global__ void sobelTest(cudaSurfaceObject_t* dstSurfMipMapArray, cudaTextureOb
 			float px = 1.0 / width;
 			float py = 1.0 / height;
 
-			float t = tex2DLod<float>(textureMipMapInput, x * px, y * px, (float)mipLevelIdx);
-			surf2Dwrite(t, dstSurfMipMapArray[mipLevelIdx], x * 4, y);
+			//float t = tex2DLod<float>(textureMipMapInput, x * px, y * px, (float)mipLevelIdx);
+			//t -= 0.005f;
+			float t = 1;
+			surf2Dwrite(t, dstSurfMipMapArray[mipLevelIdx], x * 4, y, cudaBoundaryModeZero);
 		}
 	}
 }
@@ -178,7 +180,6 @@ extern "C" void sobelFilter(cudaSurfaceObject_t* dstSurfMipMapArray, cudaTexture
 //		// for the shared kernel, width must be divisible by 4
 //		width &= ~3;
 		dim3 threadsperBlock(32, 32);
-		//dim3 threadsperBlock(16, 16);
 		dim3 numBlocks((width + threadsperBlock.x - 1) / threadsperBlock.x,
 			(height + threadsperBlock.y - 1) / threadsperBlock.y);
 
