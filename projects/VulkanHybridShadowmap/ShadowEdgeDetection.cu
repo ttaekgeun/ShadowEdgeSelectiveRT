@@ -152,7 +152,6 @@ __global__ void sobelTest(cudaSurfaceObject_t* dstSurfMipMapArray, cudaTextureOb
 {
 	unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
 	unsigned int y = blockIdx.y * blockDim.y + threadIdx.y;
-	//printf("x: %hu y: %hu\n", x, y);
 	for (uint32_t mipLevelIdx = 0; mipLevelIdx < mipLevels; mipLevelIdx++)
 	{
 		if (y < height && x < width) {

@@ -202,9 +202,9 @@ public:
 #else
 	//const uint32_t shadowMapSize{ 2048 };
 	//const uint32_t shadowMapSize{ 16384 };
-	//const uint32_t shadowMapSize{ 1024 };
+	const uint32_t shadowMapSize{ 1024 };
 	//const uint32_t shadowMapSize{ 512 };
-	const uint32_t shadowMapSize{ 128 };
+	//const uint32_t shadowMapSize{ 128 };
 #endif
 
 	// Depth bias (and slope) are used to avoid shadowing artifacts
@@ -224,14 +224,7 @@ public:
 	VkSubmitInfo geometrySubmitInfo;
 	VkSubmitInfo ligtingSubmitInfo;
 
-	VkPipelineStageFlags shadowmapWaitStages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-	VkPipelineStageFlags geometryWaitStages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-	VkPipelineStageFlags lightingWaitStages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-
 	// Semaphore used to synchronize between {shadow map generation, offscreen} and final scene rendering
-	VkSemaphore shadowmapSemaphore{ VK_NULL_HANDLE };
-	VkSemaphore offscreenSemaphore{ VK_NULL_HANDLE };
-
 	AccelerationStructure bottomLevelAS{};
 	AccelerationStructure topLevelAS{};
 
@@ -262,7 +255,7 @@ public:
 
 
 	/// <External Memory Use>
-	VkSemaphore cudaUpdateVkSemaphore, vkUpdateCudaSemaphore;
+	VkSemaphore cudaUpdateDoneVkSemaphore, geometryDoneVkSemaphore, shadowDoneVkSemaphore;
 	size_t totalImageMemSize;
 	unsigned int mipLevels = 1;
 #ifdef _WIN64
@@ -279,8 +272,9 @@ public:
 	cudaSurfaceObject_t* d_surfaceObjectList;
 	cudaTextureObject_t textureObjMipMapInput;
 
-	cudaExternalSemaphore_t cudaExtCudaUpdateVkSemaphore;
-	cudaExternalSemaphore_t cudaExtVkUpdateCudaSemaphore;
+	cudaExternalSemaphore_t cudaUpdateDoneSemaphore;
+	cudaExternalSemaphore_t geometryDoneSemaphore;
+	cudaExternalSemaphore_t shadowDoneSemaphore;
 	cudaStream_t streamToRun;
 	/// </<CUDA objects>>
 	/// </External Memory Use>
@@ -413,8 +407,9 @@ public:
 			vkDestroyRenderPass(device, shadowmapFrameBuf.renderPass, nullptr);
 			vkDestroyRenderPass(device, geometryFrameBuf.renderPass, nullptr);
 
-			vkDestroySemaphore(device, shadowmapSemaphore, nullptr);
-			vkDestroySemaphore(device, offscreenSemaphore, nullptr);
+			vkDestroySemaphore(device, shadowDoneVkSemaphore, nullptr);
+			vkDestroySemaphore(device, geometryDoneVkSemaphore, nullptr);
+			vkDestroySemaphore(device, cudaUpdateDoneVkSemaphore, nullptr);
 
 			deleteAccelerationStructure(bottomLevelAS);
 			deleteAccelerationStructure(topLevelAS);
@@ -432,8 +427,9 @@ public:
 			CUDA_CALL(cudaFreeMipmappedArray(cudaMipmappedImageArrayOrig));
 			CUDA_CALL(cudaDestroyTextureObject(textureObjMipMapInput));
 			CUDA_CALL(cudaDestroyExternalMemory(cudaExtMemImageBuffer));
-			CUDA_CALL(cudaDestroyExternalSemaphore(cudaExtCudaUpdateVkSemaphore));
-			CUDA_CALL(cudaDestroyExternalSemaphore(cudaExtVkUpdateCudaSemaphore));
+			CUDA_CALL(cudaDestroyExternalSemaphore(cudaUpdateDoneSemaphore));
+			CUDA_CALL(cudaDestroyExternalSemaphore(geometryDoneSemaphore));
+			CUDA_CALL(cudaDestroyExternalSemaphore(shadowDoneSemaphore));
 			/// </External Memory Use>
 		}
 	}
@@ -793,7 +789,7 @@ public:
 		vulkanExportMemoryAllocateInfoKHR.handleTypes =
 			VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
 #endif
-		generateMipmaps(shadowmapFrameBuf.depth.image, shadowmapFrameBuf.depth.format);
+		//generateMipmaps(shadowmapFrameBuf.depth.image, shadowmapFrameBuf.depth.format);
 
 		/// </External Memory Use>
 		memAlloc.pNext = &vulkanExportMemoryAllocateInfoKHR;
@@ -1000,9 +996,6 @@ public:
 	// [Pass 0]
 	void buildShadowmapCommandBuffers()
 	{
-		VkSemaphoreCreateInfo semaphoreCreateInfo = vks::initializers::semaphoreCreateInfo();
-		VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &shadowmapSemaphore));
-
 		VkCommandBufferBeginInfo cmdBufInfo = vks::initializers::commandBufferBeginInfo();
 
 		VkClearValue clearValue;
@@ -1058,14 +1051,6 @@ public:
 	// [Pass 1]
 	void buildGeometryCommandBuffer()
 	{
-		//if (offScreenCmdBuffer == VK_NULL_HANDLE) {
-		//	offScreenCmdBuffer = vulkanDevice->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, false);
-		//}
-
-		// Create a semaphore used to synchronize offscreen rendering and usage
-		VkSemaphoreCreateInfo semaphoreCreateInfo = vks::initializers::semaphoreCreateInfo();
-		VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &offscreenSemaphore));
-
 		VkCommandBufferBeginInfo cmdBufInfo = vks::initializers::commandBufferBeginInfo();
 
 		// Clear values for all attachments written in the fragment shader
@@ -2272,7 +2257,7 @@ public:
 			IsWindows8OrGreater()
 			? VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT
 			: VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT,
-			cudaUpdateVkSemaphore);
+			cudaUpdateDoneVkSemaphore);
 #else
 		externalSemaphoreHandleDesc.type = cudaExternalSemaphoreHandleTypeOpaqueFd;
 		externalSemaphoreHandleDesc.handle.fd = getVkSemaphoreHandle(
@@ -2280,7 +2265,7 @@ public:
 #endif
 		externalSemaphoreHandleDesc.flags = 0;
 
-		CUDA_CALL(cudaImportExternalSemaphore(&cudaExtCudaUpdateVkSemaphore, &externalSemaphoreHandleDesc));
+		CUDA_CALL(cudaImportExternalSemaphore(&cudaUpdateDoneSemaphore, &externalSemaphoreHandleDesc));
 
 		memset(&externalSemaphoreHandleDesc, 0, sizeof(externalSemaphoreHandleDesc));
 #ifdef _WIN64
@@ -2292,15 +2277,36 @@ public:
 			IsWindows8OrGreater()
 			? VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT
 			: VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT,
-			vkUpdateCudaSemaphore);
+			geometryDoneVkSemaphore);
 #else
 		externalSemaphoreHandleDesc.type = cudaExternalSemaphoreHandleTypeOpaqueFd;
 		externalSemaphoreHandleDesc.handle.fd = getVkSemaphoreHandle(
 			VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT, vkUpdateCudaSemaphore);
 #endif
 		externalSemaphoreHandleDesc.flags = 0;
-		CUDA_CALL(cudaImportExternalSemaphore(&cudaExtVkUpdateCudaSemaphore,
+		CUDA_CALL(cudaImportExternalSemaphore(&geometryDoneSemaphore,
 			&externalSemaphoreHandleDesc));
+
+		memset(&externalSemaphoreHandleDesc, 0, sizeof(externalSemaphoreHandleDesc));
+#ifdef _WIN64
+		externalSemaphoreHandleDesc.type =
+			IsWindows8OrGreater() ? cudaExternalSemaphoreHandleTypeOpaqueWin32
+			: cudaExternalSemaphoreHandleTypeOpaqueWin32Kmt;
+		;
+		externalSemaphoreHandleDesc.handle.win32.handle = getVkSemaphoreHandle(
+			IsWindows8OrGreater()
+			? VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT
+			: VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT,
+			shadowDoneVkSemaphore);
+#else
+		externalSemaphoreHandleDesc.type = cudaExternalSemaphoreHandleTypeOpaqueFd;
+		externalSemaphoreHandleDesc.handle.fd = getVkSemaphoreHandle(
+			VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT, vkUpdateCudaSemaphore);
+#endif
+		externalSemaphoreHandleDesc.flags = 0;
+		CUDA_CALL(cudaImportExternalSemaphore(&shadowDoneSemaphore,
+			&externalSemaphoreHandleDesc));
+
 		printf("CUDA Imported Vulkan semaphore\n");
 	}
 
@@ -2503,21 +2509,26 @@ public:
 #endif
 		semaphoreInfo.pNext = &vulkanExportSemaphoreCreateInfo;
 
-		if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &cudaUpdateVkSemaphore) != VK_SUCCESS ||
-			vkCreateSemaphore(device, &semaphoreInfo, nullptr, &vkUpdateCudaSemaphore) != VK_SUCCESS) {
+		if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &cudaUpdateDoneVkSemaphore) != VK_SUCCESS ||
+			vkCreateSemaphore(device, &semaphoreInfo, nullptr, &geometryDoneVkSemaphore) != VK_SUCCESS || 
+			vkCreateSemaphore(device, &semaphoreInfo, nullptr, &shadowDoneVkSemaphore) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create synchronization objects for a CUDA-Vulkan!");
 		}
 	}
 
-	void cudaVkSemaphoreWait(cudaExternalSemaphore_t& extSemaphore) {
-		cudaExternalSemaphoreWaitParams extSemaphoreWaitParams;
+	void cudaVkSemaphoreWait() {
+		cudaExternalSemaphore_t semaphores[2] = { geometryDoneSemaphore, shadowDoneSemaphore };
+		cudaExternalSemaphoreWaitParams extSemaphoreWaitParams[2];
 
 		memset(&extSemaphoreWaitParams, 0, sizeof(extSemaphoreWaitParams));
 
-		extSemaphoreWaitParams.params.fence.value = 0;
-		extSemaphoreWaitParams.flags = 0;
+		extSemaphoreWaitParams[0].params.fence.value = 0;
+		extSemaphoreWaitParams[0].flags = 0;
 
-		CUDA_CALL(cudaWaitExternalSemaphoresAsync(&extSemaphore, &extSemaphoreWaitParams, 1, streamToRun));
+		extSemaphoreWaitParams[1].params.fence.value = 0;
+		extSemaphoreWaitParams[1].flags = 0;
+
+		CUDA_CALL(cudaWaitExternalSemaphoresAsync(semaphores, extSemaphoreWaitParams, 2, streamToRun));
 	}
 
 	void cudaVkSemaphoreSignal(cudaExternalSemaphore_t& extSemaphore) {
@@ -2526,6 +2537,7 @@ public:
 
 		extSemaphoreSignalParams.params.fence.value = 0;
 		extSemaphoreSignalParams.flags = 0;
+
 		CUDA_CALL(cudaSignalExternalSemaphoresAsync(&extSemaphore, &extSemaphoreSignalParams, 1, streamToRun));
 	}
 
@@ -2537,11 +2549,11 @@ public:
 	}
 
 	void cudaUpdateVkImage() {
-		cudaVkSemaphoreWait(cudaExtVkUpdateCudaSemaphore);
+		cudaVkSemaphoreWait();
 
 		sobelFilter(d_surfaceObjectList, textureObjMipMapInput, streamToRun, mipLevels, shadowMapSize, shadowMapSize);
 
-		cudaVkSemaphoreSignal(cudaExtCudaUpdateVkSemaphore);
+		cudaVkSemaphoreSignal(cudaUpdateDoneSemaphore);
 	}
 
 	int setCudaVkDevice() {
@@ -2632,22 +2644,25 @@ public:
 	{
 		VulkanRTBase::prepareFrame();
 
+		VkPipelineStageFlags offscreenWaitStages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		VkPipelineStageFlags lightingWaitStages = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+
 		submitInfo.pNext = NULL;
-		submitInfo.pWaitDstStageMask = &shadowmapWaitStages;
+		submitInfo.pWaitDstStageMask = &offscreenWaitStages;
 		submitInfo.waitSemaphoreCount = 1;
 		submitInfo.pWaitSemaphores = &semaphores.presentComplete;
 		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = &shadowmapSemaphore;
+		submitInfo.pSignalSemaphores = &shadowDoneVkSemaphore;
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &shadowmapCmdBuffers[currentBuffer];
 		VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
 
 		submitInfo.pNext = NULL;
-		submitInfo.pWaitDstStageMask = &geometryWaitStages;
+		submitInfo.pWaitDstStageMask = &offscreenWaitStages;
 		submitInfo.waitSemaphoreCount = 1;
-		submitInfo.pWaitSemaphores = &shadowmapSemaphore;
+		submitInfo.pWaitSemaphores = &semaphores.presentComplete;
 		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = &vkUpdateCudaSemaphore;
+		submitInfo.pSignalSemaphores = &geometryDoneVkSemaphore;
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &geometryCmdBuffers[currentBuffer];
 		VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
@@ -2657,7 +2672,7 @@ public:
 		submitInfo.pNext = NULL;
 		submitInfo.pWaitDstStageMask = &lightingWaitStages;
 		submitInfo.waitSemaphoreCount = 1;
-		submitInfo.pWaitSemaphores = &cudaUpdateVkSemaphore;
+		submitInfo.pWaitSemaphores = &cudaUpdateDoneVkSemaphore;
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = &semaphores.renderComplete;
 		submitInfo.commandBufferCount = 1;
