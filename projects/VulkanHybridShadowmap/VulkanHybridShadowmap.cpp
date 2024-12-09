@@ -200,11 +200,11 @@ public:
 	// Use a smaller size on Android for performance reasons
 	const uint32_t shadowMapSize{ 1024 };
 #else
-	//const uint32_t shadowMapSize{ 16384 };
+	const uint32_t shadowMapSize{ 16384 };
 	//const uint32_t shadowMapSize{ 8192 };
 	//const uint32_t shadowMapSize{ 4096 };
 	//const uint32_t shadowMapSize{ 2048 };
-	const uint32_t shadowMapSize{ 1024 };
+	//const uint32_t shadowMapSize{ 1024 };
 	//const uint32_t shadowMapSize{ 512 };
 	//const uint32_t shadowMapSize{ 128 };
 
@@ -1911,7 +1911,7 @@ public:
 			vks::initializers::descriptorImageInfo(
 				shadowEdgeTextureSampler,
 				shadowEdgeTextureImageView,
-				VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		writeDescriptorSets.push_back(vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10, &shadowMapDescriptor));
 
 		// Binding 11: All images used by the glTF model
@@ -2369,9 +2369,10 @@ public:
 	void createTextureImage() {
 		VkDeviceSize imageSize = shadowMapSize * shadowMapSize * 4;
 
-		createImage(shadowMapSize, shadowMapSize, VK_FORMAT_D32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shadowEdgeTextureImage, shadowEdgeTextureImageMemory, shadoeEdgeImageMemSize);
-		transitionImageLayout(shadowEdgeTextureImage, VK_FORMAT_D32_SFLOAT,
-			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL, 0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
+		//createImage(shadowMapSize, shadowMapSize, VK_FORMAT_D32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shadowEdgeTextureImage, shadowEdgeTextureImageMemory, shadoeEdgeImageMemSize);
+		createImage(shadowMapSize, shadowMapSize, VK_FORMAT_R32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shadowEdgeTextureImage, shadowEdgeTextureImageMemory, shadoeEdgeImageMemSize);
+		//transitionImageLayout(shadowEdgeTextureImage, VK_FORMAT_D32_SFLOAT,			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL, 0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
+		transitionImageLayout(shadowEdgeTextureImage, VK_FORMAT_R32_SFLOAT,			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	}
 
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags flags) {
@@ -2824,7 +2825,8 @@ public:
 
 		/// <External Memory Use>
 		createTextureImage();
-		shadowEdgeTextureImageView = createImageView(shadowEdgeTextureImage, VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT);
+		//shadowEdgeTextureImageView = createImageView(shadowEdgeTextureImage, VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT);
+		shadowEdgeTextureImageView = createImageView(shadowEdgeTextureImage, VK_FORMAT_R32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
 		createTextureSampler(shadowEdgeTextureSampler);
 		getKhrExtensionsFn();
 		createSyncObjectsExt();
