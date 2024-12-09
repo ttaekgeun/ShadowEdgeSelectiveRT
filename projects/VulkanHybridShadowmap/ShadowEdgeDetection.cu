@@ -159,7 +159,7 @@ __global__ void sobelTest(cudaSurfaceObject_t* dstSurfMipMapArray, cudaTextureOb
 			float px = 1.0 / width;
 			float py = 1.0 / height;
 
-			unsigned short t = tex2DLod<unsigned short>(textureMipMapInput, x * px, y * px, (float)mipLevelIdx);
+			float t = tex2DLod<float>(textureMipMapInput, x * px, y * px, (float)mipLevelIdx);
 			surf2Dwrite(t, dstSurfMipMapArray[mipLevelIdx], x * 4, y);
 		}
 	}

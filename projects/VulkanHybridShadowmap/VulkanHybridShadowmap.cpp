@@ -723,7 +723,7 @@ public:
 		shadowmapFrameBuf.width = shadowMapSize;
 		shadowmapFrameBuf.height = shadowMapSize;
 
-		shadowmapFrameBuf.depth.format = VK_FORMAT_D16_UNORM;
+		shadowmapFrameBuf.depth.format = VK_FORMAT_D32_SFLOAT;
 
 		// For shadow mapping we only need a depth attachment
 		VkImageCreateInfo image = vks::initializers::imageCreateInfo();
@@ -2331,11 +2331,11 @@ public:
 
 		cudaExtent extent = make_cudaExtent(static_cast<size_t>(shadowMapSize), static_cast<size_t>(shadowMapSize), 0);
 		cudaChannelFormatDesc formatDesc;
-		formatDesc.x = 16;
+		formatDesc.x = 32;
 		formatDesc.y = 0;
 		formatDesc.z = 0;
 		formatDesc.w = 0;
-		formatDesc.f = cudaChannelFormatKindUnsignedNormalized16X1;
+		formatDesc.f = cudaChannelFormatKindFloat;
 
 		externalMemoryMipmappedArrayDesc.offset = 0;
 		externalMemoryMipmappedArrayDesc.formatDesc = formatDesc;
@@ -2381,8 +2381,8 @@ public:
 
 		texDescr.maxMipmapLevelClamp = float(mipLevels - 1);
 
-		//texDescr.readMode = cudaReadModeElementType;
-		texDescr.readMode = cudaReadModeNormalizedFloat;
+		texDescr.readMode = cudaReadModeElementType;
+		//texDescr.readMode = cudaReadModeNormalizedFloat;
 
 		CUDA_CALL(cudaCreateTextureObject(&textureObjMipMapInput, &resDescr, &texDescr, NULL));
 
