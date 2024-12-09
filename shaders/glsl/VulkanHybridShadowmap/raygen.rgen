@@ -45,7 +45,8 @@ layout(binding = 7) uniform sampler2D metallicRoughSampler;
 layout(binding = 8) uniform sampler2D emisSampler;
 layout(binding = 9) uniform samplerCube samplerColor;
 layout(binding = 10) uniform sampler2D shadowMap;
-layout(binding = 11) uniform sampler2D textures[];
+layout(binding = 11) uniform sampler2D lightMap;
+layout(binding = 12) uniform sampler2D textures[];
 
 const mat4 biasMat = mat4( 
 	0.5, 0.0, 0.0, 0.0,
@@ -293,6 +294,9 @@ void main()
 	// for shadow map debugging
 	float depth = texture(shadowMap, inUV).r;
 	pbrColor = vec3(1.0-LinearizeDepth(depth));
+
+	pbrColor = texture(lightMap, inUV).rgb;
+	//pbrColor = texture(posSampler, inUV).rgb;
 
 	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(pbrColor, 1.0f));	// write a single texel into an image.
 }

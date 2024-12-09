@@ -44,7 +44,8 @@ layout(binding = 3) uniform uniformBuffer
 	vec4 lightPos[1];
 } ubo;
 layout(binding = 10) uniform sampler2D shadowMap;
-layout(binding = 11) uniform sampler2D textures[];
+layout(binding = 11) uniform sampler2D lightMap;
+layout(binding = 12) uniform sampler2D textures[];
 
 #include "geometryfunctions.glsl"
 

@@ -1818,7 +1818,7 @@ public:
 			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1),
 			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1),
 			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1),
-			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 7),
+			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 8),
 			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(scene.textures.size()))
 		};
 
@@ -1905,19 +1905,21 @@ public:
 			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 8),
 			// Binding 9: Cubemap sampler for miss shader
 			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR, 9),
-			// Binding 10: Shadow map
-			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR |
-				VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 10),
-			// Binding 11: All images used by the glTF model
-			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 11, static_cast<uint32_t>(scene.textures.size()))
+			// Binding 10: Shadow Edge
+			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 10),
+			// Binding 11: Light
+			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 11),
+			// Binding 12: All images used by the glTF model
+			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 12, static_cast<uint32_t>(scene.textures.size()))
 		};
 		descriptorSetLayoutCI = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
 
 		// Unbound set
 		VkDescriptorSetLayoutBindingFlagsCreateInfoEXT setLayoutBindingFlags{};
 		setLayoutBindingFlags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
-		setLayoutBindingFlags.bindingCount = 12;
+		setLayoutBindingFlags.bindingCount = 13;
 		std::vector<VkDescriptorBindingFlagsEXT> descriptorBindingFlags = {
+			0,
 			0,
 			0,
 			0,
@@ -1996,7 +1998,6 @@ public:
 
 		// Composition WriteDescriptorSets
 		writeDescriptorSets = {
-
 			// Binding 0: Top level acceleration structure
 			accelerationStructureWrite,
 			// Binding 1: Ray tracing result image
@@ -2020,7 +2021,7 @@ public:
 		VkDescriptorImageInfo cubeMapDescriptor = vks::initializers::descriptorImageInfo(cubeMap.sampler, cubeMap.view, cubeMap.imageLayout);
 		writeDescriptorSets.push_back(vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 9, &cubeMapDescriptor));
 
-		// Binding 10 : shadow map
+		// Binding 10 : shadow edge
 		VkDescriptorImageInfo shadowMapDescriptor =
 			vks::initializers::descriptorImageInfo(
 				shadowEdgeTextureSampler,
@@ -2028,7 +2029,15 @@ public:
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		writeDescriptorSets.push_back(vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10, &shadowMapDescriptor));
 
-		// Binding 11: All images used by the glTF model
+		// Binding 11 : light
+		VkDescriptorImageInfo lightDescriptor =
+			vks::initializers::descriptorImageInfo(
+				lightTextureSampler,
+				lightTextureImageView,
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		writeDescriptorSets.push_back(vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 11, &lightDescriptor));
+
+		// Binding 12: All images used by the glTF model
 		VkWriteDescriptorSet writeDescriptorImgArray{};
 		std::vector<VkDescriptorImageInfo> textureDescriptors{};
 		for (auto texture : scene.textures) {
@@ -2039,7 +2048,7 @@ public:
 			textureDescriptors.push_back(descriptor);
 		}
 		writeDescriptorImgArray.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		writeDescriptorImgArray.dstBinding = 11;
+		writeDescriptorImgArray.dstBinding = 12;
 		writeDescriptorImgArray.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		writeDescriptorImgArray.descriptorCount = static_cast<uint32_t>(scene.textures.size());
 		writeDescriptorImgArray.dstSet = descriptorSets.composition;
@@ -2482,7 +2491,7 @@ public:
 
 	void createTextureImage() {
 		//Shadow Edge Texture
-		createImage(shadowMapSize, shadowMapSize, VK_FORMAT_R32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shadowEdgeTextureImage, shadowEdgeTextureImageMemory, shadowEdgeImageMemSize);
+		createImage(geometryFrameBuf.width, geometryFrameBuf.width, VK_FORMAT_R32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shadowEdgeTextureImage, shadowEdgeTextureImageMemory, shadowEdgeImageMemSize);
 
 		transitionImageLayout(shadowEdgeTextureImage, VK_FORMAT_R32_SFLOAT,			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -2701,7 +2710,9 @@ public:
 
 		memset(&lightExternalMemoryMipmappedArrayDesc, 0, sizeof(lightExternalMemoryMipmappedArrayDesc));
 
-		cudaExtent shadowExtent = make_cudaExtent(static_cast<size_t>(shadowMapSize), static_cast<size_t>(shadowMapSize), 0);
+		cudaExtent shadowMapExtent = make_cudaExtent(static_cast<size_t>(shadowMapSize), static_cast<size_t>(shadowMapSize), 0);
+		cudaExtent colorExtent = make_cudaExtent(static_cast<size_t>(geometryFrameBuf.width), static_cast<size_t>(geometryFrameBuf.height), 0);
+
 		cudaChannelFormatDesc formatDesc;
 		formatDesc.x = 32;
 		formatDesc.y = 0;
@@ -2711,17 +2722,16 @@ public:
 
 		shadowMapExternalMemoryMipmappedArrayDesc.offset = 0;
 		shadowMapExternalMemoryMipmappedArrayDesc.formatDesc = formatDesc;
-		shadowMapExternalMemoryMipmappedArrayDesc.extent = shadowExtent;
+		shadowMapExternalMemoryMipmappedArrayDesc.extent = shadowMapExtent;
 		shadowMapExternalMemoryMipmappedArrayDesc.flags = 0;
 		shadowMapExternalMemoryMipmappedArrayDesc.numLevels = mipLevels;
 
 		shadowEdgeExternalMemoryMipmappedArrayDesc.offset = 0;
 		shadowEdgeExternalMemoryMipmappedArrayDesc.formatDesc = formatDesc;
-		shadowEdgeExternalMemoryMipmappedArrayDesc.extent = shadowExtent;
+		shadowEdgeExternalMemoryMipmappedArrayDesc.extent = colorExtent;
 		shadowEdgeExternalMemoryMipmappedArrayDesc.flags = 0;
 		shadowEdgeExternalMemoryMipmappedArrayDesc.numLevels = mipLevels;
 
-		cudaExtent colorExtent = make_cudaExtent(static_cast<size_t>(geometryFrameBuf.width), static_cast<size_t>(geometryFrameBuf.height), 0);
 		formatDesc.x = 16;
 		formatDesc.y = 16;
 		formatDesc.z = 16;
@@ -2821,86 +2831,6 @@ public:
 		printf("CUDA Kernel Vulkan image buffer\n");
 	}
 
-	void generateMipmaps(VkImage image, VkFormat imageFormat) {
-		VkFormatProperties formatProperties;
-		vkGetPhysicalDeviceFormatProperties(physicalDevice, imageFormat,
-			&formatProperties);
-
-		if (!(formatProperties.optimalTilingFeatures &
-			VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
-			throw std::runtime_error(
-				"texture image format does not support linear blitting!");
-		}
-
-		VkCommandBuffer commandBuffer = beginSingleTimeCommands();
-
-		VkImageMemoryBarrier barrier = {};
-		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.image = image;
-		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		barrier.subresourceRange.baseArrayLayer = 0;
-		barrier.subresourceRange.layerCount = 1;
-		barrier.subresourceRange.levelCount = 1;
-
-		int32_t mipWidth = shadowMapSize;
-		int32_t mipHeight = shadowMapSize;
-
-		for (uint32_t i = 1; i < mipLevels; i++) {
-			barrier.subresourceRange.baseMipLevel = i - 1;
-			barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-			barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-			barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-			barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-
-			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT,
-				VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
-				nullptr, 1, &barrier);
-
-			VkImageBlit blit = {};
-			blit.srcOffsets[0] = { 0, 0, 0 };
-			blit.srcOffsets[1] = { mipWidth, mipHeight, 1 };
-			blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			blit.srcSubresource.mipLevel = i - 1;
-			blit.srcSubresource.baseArrayLayer = 0;
-			blit.srcSubresource.layerCount = 1;
-			blit.dstOffsets[0] = { 0, 0, 0 };
-			blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1,
-								  mipHeight > 1 ? mipHeight / 2 : 1, 1 };
-			blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			blit.dstSubresource.mipLevel = i;
-			blit.dstSubresource.baseArrayLayer = 0;
-			blit.dstSubresource.layerCount = 1;
-
-			vkCmdBlitImage(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit,
-				VK_FILTER_LINEAR);
-
-			barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-			barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT,
-				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
-				0, nullptr, 1, &barrier);
-
-			if (mipWidth > 1) mipWidth /= 2;
-			if (mipHeight > 1) mipHeight /= 2;
-		}
-
-		barrier.subresourceRange.baseMipLevel = mipLevels - 1;
-		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-		vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-		endSingleTimeCommands(commandBuffer);
-	}
-
 	void createSyncObjectsExt() {
 		VkSemaphoreCreateInfo semaphoreInfo = {};
 		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -2973,7 +2903,7 @@ public:
 	void cudaUpdateVkImage() {
 		cudaVkSemaphoreWait();
 
-		sobelFilter(d_surfaceObjectListShadowEdge, textureObjShadowMap, streamToRun, mipLevels, shadowMapSize, shadowMapSize);
+		sobelFilter(d_surfaceObjectListShadowEdge, d_surfaceObjectListLight, textureObjShadowMap, textureObjPosition, streamToRun, mipLevels, geometryFrameBuf.width, geometryFrameBuf.height);
 
 		cudaVkSemaphoreSignal(cudaUpdateDoneSemaphore);
 	}

@@ -28,7 +28,7 @@ layout(binding = 3) uniform uniformBuffer
 	uint frame;
 	vec4 lightPos[1];
 } ubo;
-layout(binding = 11) uniform sampler2D textures[];
+layout(binding = 12) uniform sampler2D textures[];
 
 #include "geometryfunctions.glsl"
 #include "random.glsl"
