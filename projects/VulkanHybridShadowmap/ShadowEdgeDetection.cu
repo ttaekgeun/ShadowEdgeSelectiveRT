@@ -148,7 +148,7 @@ __device__ unsigned short FloatToUShort(float value) {
 //	cg::sync(cta);
 //}
 
-__global__ void sobelTest(cudaSurfaceObject_t* dstSurfMipMapArray, cudaTextureObject_t textureMipMapInput, size_t mipLevels, int width, int height)
+__global__ void sobelTest(cudaSurfaceObject_t* shadowEdgeTexture, cudaTextureObject_t shadowMapTexture, size_t mipLevels, int width, int height)
 {
 	unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
 	unsigned int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -158,16 +158,16 @@ __global__ void sobelTest(cudaSurfaceObject_t* dstSurfMipMapArray, cudaTextureOb
 			float px = 1.0 / width;
 			float py = 1.0 / height;
 
-			float t = tex2DLod<float>(textureMipMapInput, x * px, y * px, (float)mipLevelIdx);
+			float t = tex2DLod<float>(shadowMapTexture, x * px, y * px, (float)mipLevelIdx);
 			//t -= 0.005f;
 			//float t = 0;
-			surf2Dwrite(t, dstSurfMipMapArray[mipLevelIdx], x * 4, y);
+			surf2Dwrite(t, shadowEdgeTexture[mipLevelIdx], x * 4, y);
 		}
 	}
 }
 
 // Wrapper for the __global__ call that sets up the texture and threads
-extern "C" void sobelFilter(cudaSurfaceObject_t* dstSurfMipMapArray, cudaTextureObject_t textureMipMapInput, cudaStream_t streamToRun, size_t mipLevels, int width, int height) {
+extern "C" void sobelFilter(cudaSurfaceObject_t* shadowEdgeTexture, cudaTextureObject_t shadowMapTexture, cudaStream_t streamToRun, size_t mipLevels, int width, int height) {
 //		dim3 threads(16, 4);
 //#ifndef FIXED_BLOCKWIDTH
 //		int BlockWidth = 80;  // must be divisible by 16 for coalescing
@@ -189,5 +189,5 @@ extern "C" void sobelFilter(cudaSurfaceObject_t* dstSurfMipMapArray, cudaTexture
 //#endif
 //			iw, ih, fScale, texObject);
 		//sobelTest << <blocks, threads, 0, streamToRun >> > (dstSurfMipMapArray, textureMipMapInput, mipLevels, width, height);
-		sobelTest << <numBlocks, threadsperBlock, 0, streamToRun >> > (dstSurfMipMapArray, textureMipMapInput, mipLevels, width, height);
+		sobelTest << <numBlocks, threadsperBlock, 0, streamToRun >> > (shadowEdgeTexture, shadowMapTexture, mipLevels, width, height);
 }

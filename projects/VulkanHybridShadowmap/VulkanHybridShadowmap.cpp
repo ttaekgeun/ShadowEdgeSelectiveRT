@@ -259,13 +259,18 @@ public:
 
 	/// <External Memory Use>
 	VkSemaphore cudaUpdateDoneVkSemaphore, geometryDoneVkSemaphore, shadowDoneVkSemaphore;
-	size_t shadowMapImageMemSize, shadoeEdgeImageMemSize;
+	size_t shadowMapImageMemSize, shadowEdgeImageMemSize, positionImageMemSize, lightImageMemSize;
 	unsigned int mipLevels = 1;
 
 	VkImage shadowEdgeTextureImage;
 	VkDeviceMemory shadowEdgeTextureImageMemory;
 	VkImageView shadowEdgeTextureImageView;
 	VkSampler shadowEdgeTextureSampler;
+
+	VkImage lightTextureImage;
+	VkDeviceMemory lightTextureImageMemory;
+	VkImageView lightTextureImageView;
+	VkSampler lightTextureSampler;
 #ifdef _WIN64
 	PFN_vkGetMemoryWin32HandleKHR fpGetMemoryWin32HandleKHR;
 	PFN_vkGetSemaphoreWin32HandleKHR fpGetSemaphoreWin32HandleKHR;
@@ -274,11 +279,11 @@ public:
 	PFN_vkGetSemaphoreFdKHR fpGetSemaphoreFdKHR = NULL;
 #endif
 	/// <CUDA objects>
-	cudaExternalMemory_t cudaExtMemShadowMapImageBuffer, cudaExtMemShadowEdgeImageBuffer;
-	cudaMipmappedArray_t cudaMipmappedImageArrayShadowEdge, cudaMipmappedImageArrayShadowMap;
-	std::vector<cudaSurfaceObject_t> surfaceObjectList;
-	cudaSurfaceObject_t* d_surfaceObjectList;
-	cudaTextureObject_t textureObjMipMapInput;
+	cudaExternalMemory_t cudaExtMemShadowMapImageBuffer, cudaExtMemShadowEdgeImageBuffer, cudaExtMemPositionImageBuffer, cudaExtMemLightImageBuffer;
+	cudaMipmappedArray_t cudaMipmappedImageArrayShadowEdge, cudaMipmappedImageArrayShadowMap, cudaMipmappedImageArrayPosition, cudaMipmappedImageArrayLight;
+	std::vector<cudaSurfaceObject_t> surfaceObjectListShadowEdge, surfaceObjectListLight;
+	cudaSurfaceObject_t* d_surfaceObjectListShadowEdge, *d_surfaceObjectListLight;
+	cudaTextureObject_t textureObjShadowMap, textureObjPosition, textureObjLight;
 
 	cudaExternalSemaphore_t cudaUpdateDoneSemaphore;
 	cudaExternalSemaphore_t geometryDoneSemaphore;
@@ -430,10 +435,10 @@ public:
 			shaderBindingTables.hit.destroy();
 
 			/// <External Memory Use>
-			CUDA_CALL(cudaFree(d_surfaceObjectList));
+			CUDA_CALL(cudaFree(d_surfaceObjectListShadowEdge));
 			CUDA_CALL(cudaFreeMipmappedArray(cudaMipmappedImageArrayShadowMap));
 			CUDA_CALL(cudaFreeMipmappedArray(cudaMipmappedImageArrayShadowEdge));
-			CUDA_CALL(cudaDestroyTextureObject(textureObjMipMapInput));
+			CUDA_CALL(cudaDestroyTextureObject(textureObjShadowMap));
 			CUDA_CALL(cudaDestroyExternalMemory(cudaExtMemShadowMapImageBuffer));
 			CUDA_CALL(cudaDestroyExternalSemaphore(cudaUpdateDoneSemaphore));
 			CUDA_CALL(cudaDestroyExternalSemaphore(geometryDoneSemaphore));
@@ -672,6 +677,115 @@ public:
 		VK_CHECK_RESULT(vkCreateImageView(device, &imageView, nullptr, &attachment->view));
 	}
 
+	/// <External Memory Use>
+	void createPositionAttachment(
+		VkFormat format,
+		VkImageUsageFlagBits usage,
+		FrameBufferAttachment* attachment)
+	{
+		VkImageAspectFlags aspectMask = 0;
+		VkImageLayout imageLayout;
+
+		attachment->format = format;
+
+		if (usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+		{
+			aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		}
+		if (usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+		{
+			aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+			if (format >= VK_FORMAT_D16_UNORM_S8_UINT)
+				aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+			imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		}
+
+		assert(aspectMask > 0);
+
+		VkImageCreateInfo image = vks::initializers::imageCreateInfo();
+		image.imageType = VK_IMAGE_TYPE_2D;
+		image.format = format;
+		image.extent.width = geometryFrameBuf.width;
+		image.extent.height = geometryFrameBuf.height;
+		image.extent.depth = 1;
+		image.mipLevels = mipLevels;
+		image.arrayLayers = 1;
+		image.samples = VK_SAMPLE_COUNT_1_BIT;
+		image.tiling = VK_IMAGE_TILING_OPTIMAL;
+		image.usage = usage | VK_IMAGE_USAGE_SAMPLED_BIT;
+
+		VkExternalMemoryImageCreateInfo vkExternalMemImageCreateInfo = {};
+		vkExternalMemImageCreateInfo.sType =
+			VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
+		vkExternalMemImageCreateInfo.pNext = NULL;
+#ifdef _WIN64
+		vkExternalMemImageCreateInfo.handleTypes =
+			VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+#else
+		vkExternalMemImageCreateInfo.handleTypes =
+			VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
+#endif
+		image.pNext = &vkExternalMemImageCreateInfo;
+
+		VkMemoryAllocateInfo memAlloc = vks::initializers::memoryAllocateInfo();
+		VkMemoryRequirements memReqs;
+
+		/// <External Memory Use>
+#ifdef _WIN64
+		WindowsSecurityAttributes winSecurityAttributes;
+
+		VkExportMemoryWin32HandleInfoKHR vulkanExportMemoryWin32HandleInfoKHR = {};
+		vulkanExportMemoryWin32HandleInfoKHR.sType =
+			VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR;
+		vulkanExportMemoryWin32HandleInfoKHR.pNext = NULL;
+		vulkanExportMemoryWin32HandleInfoKHR.pAttributes = &winSecurityAttributes;
+		vulkanExportMemoryWin32HandleInfoKHR.dwAccess =
+			DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE;
+		vulkanExportMemoryWin32HandleInfoKHR.name = (LPCWSTR)NULL;
+#endif
+		VkExportMemoryAllocateInfoKHR vulkanExportMemoryAllocateInfoKHR = {};
+		vulkanExportMemoryAllocateInfoKHR.sType =
+			VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_KHR;
+#ifdef _WIN64
+		vulkanExportMemoryAllocateInfoKHR.pNext =
+			IsWindows8OrGreater() ? &vulkanExportMemoryWin32HandleInfoKHR : NULL;
+		vulkanExportMemoryAllocateInfoKHR.handleTypes =
+			IsWindows8OrGreater()
+			? VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT
+			: VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT;
+#else
+		vulkanExportMemoryAllocateInfoKHR.pNext = NULL;
+		vulkanExportMemoryAllocateInfoKHR.handleTypes =
+			VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
+#endif
+
+		/// </External Memory Use>
+		memAlloc.pNext = &vulkanExportMemoryAllocateInfoKHR;
+
+		VK_CHECK_RESULT(vkCreateImage(device, &image, nullptr, &attachment->image));
+		vkGetImageMemoryRequirements(device, attachment->image, &memReqs);
+		memAlloc.allocationSize = memReqs.size;
+		memAlloc.memoryTypeIndex = vulkanDevice->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		VK_CHECK_RESULT(vkAllocateMemory(device, &memAlloc, nullptr, &attachment->mem));
+		VK_CHECK_RESULT(vkBindImageMemory(device, attachment->image, attachment->mem, 0));
+
+		positionImageMemSize = memReqs.size;
+
+		VkImageViewCreateInfo imageView = vks::initializers::imageViewCreateInfo();
+		imageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		imageView.format = format;
+		imageView.subresourceRange = {};
+		imageView.subresourceRange.aspectMask = aspectMask;
+		imageView.subresourceRange.baseMipLevel = 0;
+		imageView.subresourceRange.levelCount = mipLevels;
+		imageView.subresourceRange.baseArrayLayer = 0;
+		imageView.subresourceRange.layerCount = 1;
+		imageView.image = attachment->image;
+		VK_CHECK_RESULT(vkCreateImageView(device, &imageView, nullptr, &attachment->view));
+	}
+	/// </External Memory Use>
+
 	void prepareShadowmapRenderpass()
 	{
 		VkAttachmentDescription attachmentDescription{};
@@ -856,7 +970,7 @@ public:
 
 		// Color attachments
 		{
-			createAttachment(									// (World space) Positions
+			createPositionAttachment(									// (World space) Positions
 				VK_FORMAT_R16G16B16A16_SFLOAT,
 				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 				&geometryFrameBuf.position);
@@ -2367,12 +2481,15 @@ public:
 	}
 
 	void createTextureImage() {
-		VkDeviceSize imageSize = shadowMapSize * shadowMapSize * 4;
+		//Shadow Edge Texture
+		createImage(shadowMapSize, shadowMapSize, VK_FORMAT_R32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shadowEdgeTextureImage, shadowEdgeTextureImageMemory, shadowEdgeImageMemSize);
 
-		//createImage(shadowMapSize, shadowMapSize, VK_FORMAT_D32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shadowEdgeTextureImage, shadowEdgeTextureImageMemory, shadoeEdgeImageMemSize);
-		createImage(shadowMapSize, shadowMapSize, VK_FORMAT_R32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shadowEdgeTextureImage, shadowEdgeTextureImageMemory, shadoeEdgeImageMemSize);
-		//transitionImageLayout(shadowEdgeTextureImage, VK_FORMAT_D32_SFLOAT,			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL, 0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
 		transitionImageLayout(shadowEdgeTextureImage, VK_FORMAT_R32_SFLOAT,			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+		//Light Texture
+		createImage(geometryFrameBuf.width, geometryFrameBuf.height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, lightTextureImage, lightTextureImageMemory, lightImageMemSize);
+
+		transitionImageLayout(lightTextureImage, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	}
 
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags flags) {
@@ -2486,6 +2603,8 @@ public:
 
 	void cudaVkImportImageMem() {
 		cudaExternalMemoryHandleDesc cudaExtMemHandleDesc;
+
+		/// <Shadow Map>
 		memset(&cudaExtMemHandleDesc, 0, sizeof(cudaExtMemHandleDesc));
 #ifdef _WIN64
 		cudaExtMemHandleDesc.type =
@@ -2504,7 +2623,9 @@ public:
 		cudaExtMemHandleDesc.size = shadowMapImageMemSize;
 
 		CUDA_CALL(cudaImportExternalMemory(&cudaExtMemShadowMapImageBuffer, &cudaExtMemHandleDesc));
+		/// </Shadow Map>
 
+		/// <Shadow Edge>
 		memset(&cudaExtMemHandleDesc, 0, sizeof(cudaExtMemHandleDesc));
 #ifdef _WIN64
 		cudaExtMemHandleDesc.type =
@@ -2520,18 +2641,67 @@ public:
 		cudaExtMemHandleDesc.handle.fd =
 			getVkImageMemHandle(VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR);
 #endif
-		cudaExtMemHandleDesc.size = shadoeEdgeImageMemSize;
+		cudaExtMemHandleDesc.size = shadowEdgeImageMemSize;
 
 		CUDA_CALL(cudaImportExternalMemory(&cudaExtMemShadowEdgeImageBuffer, &cudaExtMemHandleDesc));
+		/// </Shadow Edge>
+
+		/// <Position>
+		memset(&cudaExtMemHandleDesc, 0, sizeof(cudaExtMemHandleDesc));
+#ifdef _WIN64
+		cudaExtMemHandleDesc.type =
+			IsWindows8OrGreater() ? cudaExternalMemoryHandleTypeOpaqueWin32
+			: cudaExternalMemoryHandleTypeOpaqueWin32Kmt;
+		cudaExtMemHandleDesc.handle.win32.handle = getVkImageMemHandle(
+			IsWindows8OrGreater()
+			? VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT
+			: VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT, geometryFrameBuf.position.mem);
+#else
+		cudaExtMemHandleDesc.type = cudaExternalMemoryHandleTypeOpaqueFd;
+
+		cudaExtMemHandleDesc.handle.fd =
+			getVkImageMemHandle(VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR);
+#endif
+		cudaExtMemHandleDesc.size = positionImageMemSize;
+
+		CUDA_CALL(cudaImportExternalMemory(&cudaExtMemPositionImageBuffer, &cudaExtMemHandleDesc));
+		/// </Position>
+
+		/// <Light>
+		memset(&cudaExtMemHandleDesc, 0, sizeof(cudaExtMemHandleDesc));
+#ifdef _WIN64
+		cudaExtMemHandleDesc.type =
+			IsWindows8OrGreater() ? cudaExternalMemoryHandleTypeOpaqueWin32
+			: cudaExternalMemoryHandleTypeOpaqueWin32Kmt;
+		cudaExtMemHandleDesc.handle.win32.handle = getVkImageMemHandle(
+			IsWindows8OrGreater()
+			? VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT
+			: VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT, lightTextureImageMemory);
+#else
+		cudaExtMemHandleDesc.type = cudaExternalMemoryHandleTypeOpaqueFd;
+
+		cudaExtMemHandleDesc.handle.fd =
+			getVkImageMemHandle(VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR);
+#endif
+		cudaExtMemHandleDesc.size = lightImageMemSize;
+
+		CUDA_CALL(cudaImportExternalMemory(&cudaExtMemLightImageBuffer, &cudaExtMemHandleDesc));
+		/// </Light>
 
 		cudaExternalMemoryMipmappedArrayDesc shadowMapExternalMemoryMipmappedArrayDesc;
 		cudaExternalMemoryMipmappedArrayDesc shadowEdgeExternalMemoryMipmappedArrayDesc;
+		cudaExternalMemoryMipmappedArrayDesc positionExternalMemoryMipmappedArrayDesc;
+		cudaExternalMemoryMipmappedArrayDesc lightExternalMemoryMipmappedArrayDesc;
 
 		memset(&shadowMapExternalMemoryMipmappedArrayDesc, 0, sizeof(shadowMapExternalMemoryMipmappedArrayDesc));
 
-		memset(&shadowEdgeExternalMemoryMipmappedArrayDesc, 0, sizeof(shadowMapExternalMemoryMipmappedArrayDesc));
+		memset(&shadowEdgeExternalMemoryMipmappedArrayDesc, 0, sizeof(shadowEdgeExternalMemoryMipmappedArrayDesc));
 
-		cudaExtent extent = make_cudaExtent(static_cast<size_t>(shadowMapSize), static_cast<size_t>(shadowMapSize), 0);
+		memset(&positionExternalMemoryMipmappedArrayDesc, 0, sizeof(positionExternalMemoryMipmappedArrayDesc));
+
+		memset(&lightExternalMemoryMipmappedArrayDesc, 0, sizeof(lightExternalMemoryMipmappedArrayDesc));
+
+		cudaExtent shadowExtent = make_cudaExtent(static_cast<size_t>(shadowMapSize), static_cast<size_t>(shadowMapSize), 0);
 		cudaChannelFormatDesc formatDesc;
 		formatDesc.x = 32;
 		formatDesc.y = 0;
@@ -2541,36 +2711,75 @@ public:
 
 		shadowMapExternalMemoryMipmappedArrayDesc.offset = 0;
 		shadowMapExternalMemoryMipmappedArrayDesc.formatDesc = formatDesc;
-		shadowMapExternalMemoryMipmappedArrayDesc.extent = extent;
+		shadowMapExternalMemoryMipmappedArrayDesc.extent = shadowExtent;
 		shadowMapExternalMemoryMipmappedArrayDesc.flags = 0;
 		shadowMapExternalMemoryMipmappedArrayDesc.numLevels = mipLevels;
 
 		shadowEdgeExternalMemoryMipmappedArrayDesc.offset = 0;
 		shadowEdgeExternalMemoryMipmappedArrayDesc.formatDesc = formatDesc;
-		shadowEdgeExternalMemoryMipmappedArrayDesc.extent = extent;
+		shadowEdgeExternalMemoryMipmappedArrayDesc.extent = shadowExtent;
 		shadowEdgeExternalMemoryMipmappedArrayDesc.flags = 0;
 		shadowEdgeExternalMemoryMipmappedArrayDesc.numLevels = mipLevels;
+
+		cudaExtent colorExtent = make_cudaExtent(static_cast<size_t>(geometryFrameBuf.width), static_cast<size_t>(geometryFrameBuf.height), 0);
+		formatDesc.x = 16;
+		formatDesc.y = 16;
+		formatDesc.z = 16;
+		formatDesc.w = 16;
+		formatDesc.f = cudaChannelFormatKindFloat;
+
+		positionExternalMemoryMipmappedArrayDesc.offset = 0;
+		positionExternalMemoryMipmappedArrayDesc.formatDesc = formatDesc;
+		positionExternalMemoryMipmappedArrayDesc.extent = colorExtent;
+		positionExternalMemoryMipmappedArrayDesc.flags = 0;
+		positionExternalMemoryMipmappedArrayDesc.numLevels = mipLevels;
+
+		lightExternalMemoryMipmappedArrayDesc.offset = 0;
+		lightExternalMemoryMipmappedArrayDesc.formatDesc = formatDesc;
+		lightExternalMemoryMipmappedArrayDesc.extent = colorExtent;
+		lightExternalMemoryMipmappedArrayDesc.flags = 0;
+		lightExternalMemoryMipmappedArrayDesc.numLevels = mipLevels;
 
 		CUDA_CALL(cudaExternalMemoryGetMappedMipmappedArray(&cudaMipmappedImageArrayShadowMap, cudaExtMemShadowMapImageBuffer, &shadowMapExternalMemoryMipmappedArrayDesc));
 
 		CUDA_CALL(cudaExternalMemoryGetMappedMipmappedArray(&cudaMipmappedImageArrayShadowEdge, cudaExtMemShadowEdgeImageBuffer, &shadowEdgeExternalMemoryMipmappedArrayDesc));
 
+		CUDA_CALL(cudaExternalMemoryGetMappedMipmappedArray(&cudaMipmappedImageArrayPosition, cudaExtMemPositionImageBuffer, &positionExternalMemoryMipmappedArrayDesc));
+
+		CUDA_CALL(cudaExternalMemoryGetMappedMipmappedArray(&cudaMipmappedImageArrayLight, cudaExtMemLightImageBuffer, &lightExternalMemoryMipmappedArrayDesc));
+
 		for (int mipLevelIdx = 0; mipLevelIdx < mipLevels; mipLevelIdx++) {
-			cudaArray_t cudaMipLevelArrayEdgeShadowEdge;
+			cudaArray_t cudaMipLevelArrayShadowEdge, cudaMipLevelArrayLight;
 			cudaResourceDesc resourceDesc;
 
-			CUDA_CALL(cudaGetMipmappedArrayLevel(&cudaMipLevelArrayEdgeShadowEdge, cudaMipmappedImageArrayShadowEdge, mipLevelIdx));
+			/// <Shadow Edge>
+			CUDA_CALL(cudaGetMipmappedArrayLevel(&cudaMipLevelArrayShadowEdge, cudaMipmappedImageArrayShadowEdge, mipLevelIdx));
 
 			memset(&resourceDesc, 0, sizeof(resourceDesc));
 			resourceDesc.resType = cudaResourceTypeArray;
-			resourceDesc.res.array.array = cudaMipLevelArrayEdgeShadowEdge;
+			resourceDesc.res.array.array = cudaMipLevelArrayShadowEdge;
 
-			cudaSurfaceObject_t surfaceObject;
-			CUDA_CALL(cudaCreateSurfaceObject(&surfaceObject, &resourceDesc));
+			cudaSurfaceObject_t surfaceObjectShadowEdge;
+			CUDA_CALL(cudaCreateSurfaceObject(&surfaceObjectShadowEdge, &resourceDesc));
 
-			surfaceObjectList.push_back(surfaceObject);
+			surfaceObjectListShadowEdge.push_back(surfaceObjectShadowEdge);
+			/// </Shadow Edge>
+
+			/// <Light>
+			CUDA_CALL(cudaGetMipmappedArrayLevel(&cudaMipLevelArrayLight, cudaMipmappedImageArrayLight, mipLevelIdx));
+
+			memset(&resourceDesc, 0, sizeof(resourceDesc));
+			resourceDesc.resType = cudaResourceTypeArray;
+			resourceDesc.res.array.array = cudaMipLevelArrayLight;
+
+			cudaSurfaceObject_t surfaceObjectLight;
+			CUDA_CALL(cudaCreateSurfaceObject(&surfaceObjectLight, &resourceDesc));
+
+			surfaceObjectListLight.push_back(surfaceObjectLight);
+			/// </Light>
 		}
 
+		/// <Shadow Map>
 		cudaResourceDesc resDescr;
 		memset(&resDescr, 0, sizeof(cudaResourceDesc));
 
@@ -2591,11 +2800,23 @@ public:
 
 		texDescr.readMode = cudaReadModeElementType;
 
-		CUDA_CALL(cudaCreateTextureObject(&textureObjMipMapInput, &resDescr, &texDescr, NULL));
+		CUDA_CALL(cudaCreateTextureObject(&textureObjShadowMap, &resDescr, &texDescr, NULL));
+		/// </Shadow Map>
 
-		CUDA_CALL(cudaMalloc((void**)&d_surfaceObjectList, sizeof(cudaSurfaceObject_t) * mipLevels));
+		/// <Position>
+		resDescr.res.mipmap.mipmap = cudaMipmappedImageArrayPosition;
+		CUDA_CALL(cudaCreateTextureObject(&textureObjPosition, &resDescr, &texDescr, NULL));
+		/// </Position>
 
-		CUDA_CALL(cudaMemcpy(d_surfaceObjectList, surfaceObjectList.data(), sizeof(cudaSurfaceObject_t) * mipLevels, cudaMemcpyHostToDevice));
+		/// <Shadow Edge>
+		CUDA_CALL(cudaMalloc((void**)&d_surfaceObjectListShadowEdge, sizeof(cudaSurfaceObject_t) * mipLevels));
+		CUDA_CALL(cudaMemcpy(d_surfaceObjectListShadowEdge, surfaceObjectListShadowEdge.data(), sizeof(cudaSurfaceObject_t) * mipLevels, cudaMemcpyHostToDevice));
+		/// </Shadow Edge>
+
+		/// <Light>
+		CUDA_CALL(cudaMalloc((void**)&d_surfaceObjectListLight, sizeof(cudaSurfaceObject_t) * mipLevels));
+		CUDA_CALL(cudaMemcpy(d_surfaceObjectListLight, surfaceObjectListLight.data(), sizeof(cudaSurfaceObject_t) * mipLevels, cudaMemcpyHostToDevice));
+		/// </Light>
 
 		printf("CUDA Kernel Vulkan image buffer\n");
 	}
@@ -2752,7 +2973,7 @@ public:
 	void cudaUpdateVkImage() {
 		cudaVkSemaphoreWait();
 
-		sobelFilter(d_surfaceObjectList, textureObjMipMapInput, streamToRun, mipLevels, shadowMapSize, shadowMapSize);
+		sobelFilter(d_surfaceObjectListShadowEdge, textureObjShadowMap, streamToRun, mipLevels, shadowMapSize, shadowMapSize);
 
 		cudaVkSemaphoreSignal(cudaUpdateDoneSemaphore);
 	}
@@ -2825,9 +3046,12 @@ public:
 
 		/// <External Memory Use>
 		createTextureImage();
-		//shadowEdgeTextureImageView = createImageView(shadowEdgeTextureImage, VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT);
 		shadowEdgeTextureImageView = createImageView(shadowEdgeTextureImage, VK_FORMAT_R32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
 		createTextureSampler(shadowEdgeTextureSampler);
+
+		lightTextureImageView = createImageView(lightTextureImage, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
+		createTextureSampler(lightTextureSampler);
+
 		getKhrExtensionsFn();
 		createSyncObjectsExt();
 		initCuda();

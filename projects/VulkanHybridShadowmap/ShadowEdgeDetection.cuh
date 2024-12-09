@@ -13,4 +13,4 @@
 
 typedef unsigned char Pixel;
 
-extern "C" void sobelFilter(cudaSurfaceObject_t* dstSurfMipMapArray, cudaTextureObject_t textureMipMapInput, cudaStream_t streamToRun, size_t mipLevels, int width, int height);
+extern "C" void sobelFilter(cudaSurfaceObject_t* shadowEdgeTexture, cudaTextureObject_t shadowMapTexture, cudaStream_t streamToRun, size_t mipLevels, int width, int height);
