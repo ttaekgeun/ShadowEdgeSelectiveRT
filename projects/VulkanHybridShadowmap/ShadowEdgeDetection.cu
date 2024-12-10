@@ -163,8 +163,8 @@ __global__ void sobelTest(cudaSurfaceObject_t* shadowEdgeTexture, cudaSurfaceObj
 			//float t = 0;
 			//surf2Dwrite(t, shadowEdgeTexture[mipLevelIdx], x * 4, y);
 
-			float2 t = tex2DLod<float2>(positionTexture, x * px, y * px, (float)mipLevelIdx);
-			surf2Dwrite(t, lightTexture[mipLevelIdx], x * sizeof(float2), y);
+			float4 t = tex2DLod<float4>(positionTexture, x * px, y * px, (float)mipLevelIdx);
+			surf2Dwrite(t, lightTexture[mipLevelIdx], x * sizeof(float4), y);
 		}
 	}
 }

@@ -101,7 +101,7 @@
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>
     <CudaCompile>
-      <CodeGeneration>compute_86,sm_86;</CodeGeneration>
+      <CodeGeneration>compute_89,sm_89;</CodeGeneration>
       <Defines>WIN32</Defines>
     </CudaCompile>
   </ItemDefinitionGroup>

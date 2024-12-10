@@ -201,12 +201,7 @@ public:
 	const uint32_t shadowMapSize{ 1024 };
 #else
 	const uint32_t shadowMapSize{ 16384 };
-	//const uint32_t shadowMapSize{ 8192 };
 	//const uint32_t shadowMapSize{ 4096 };
-	//const uint32_t shadowMapSize{ 2048 };
-	//const uint32_t shadowMapSize{ 1024 };
-	//const uint32_t shadowMapSize{ 512 };
-	//const uint32_t shadowMapSize{ 128 };
 
 #endif
 
@@ -971,7 +966,7 @@ public:
 		// Color attachments
 		{
 			createPositionAttachment(									// (World space) Positions
-				VK_FORMAT_R16G16B16A16_SFLOAT,
+				VK_FORMAT_R32G32B32A32_SFLOAT,
 				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 				&geometryFrameBuf.position);
 			createAttachment(									// (World space) Normals
@@ -2496,9 +2491,9 @@ public:
 		transitionImageLayout(shadowEdgeTextureImage, VK_FORMAT_R32_SFLOAT,			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
 		//Light Texture
-		createImage(geometryFrameBuf.width, geometryFrameBuf.height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, lightTextureImage, lightTextureImageMemory, lightImageMemSize);
+		createImage(geometryFrameBuf.width, geometryFrameBuf.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, lightTextureImage, lightTextureImageMemory, lightImageMemSize);
 
-		transitionImageLayout(lightTextureImage, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+		transitionImageLayout(lightTextureImage, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	}
 
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags flags) {
@@ -2732,10 +2727,10 @@ public:
 		shadowEdgeExternalMemoryMipmappedArrayDesc.flags = 0;
 		shadowEdgeExternalMemoryMipmappedArrayDesc.numLevels = mipLevels;
 
-		formatDesc.x = 16;
-		formatDesc.y = 16;
-		formatDesc.z = 16;
-		formatDesc.w = 16;
+		formatDesc.x = 32;
+		formatDesc.y = 32;
+		formatDesc.z = 32;
+		formatDesc.w = 32;
 		formatDesc.f = cudaChannelFormatKindFloat;
 
 		positionExternalMemoryMipmappedArrayDesc.offset = 0;
@@ -2815,6 +2810,8 @@ public:
 
 		/// <Position>
 		resDescr.res.mipmap.mipmap = cudaMipmappedImageArrayPosition;
+		texDescr.filterMode = cudaFilterModeLinear;
+		texDescr.mipmapFilterMode = cudaFilterModeLinear;
 		CUDA_CALL(cudaCreateTextureObject(&textureObjPosition, &resDescr, &texDescr, NULL));
 		/// </Position>
 
@@ -2979,7 +2976,7 @@ public:
 		shadowEdgeTextureImageView = createImageView(shadowEdgeTextureImage, VK_FORMAT_R32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
 		createTextureSampler(shadowEdgeTextureSampler);
 
-		lightTextureImageView = createImageView(lightTextureImage, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
+		lightTextureImageView = createImageView(lightTextureImage, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
 		createTextureSampler(lightTextureSampler);
 
 		getKhrExtensionsFn();

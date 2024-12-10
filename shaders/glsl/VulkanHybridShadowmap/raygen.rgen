@@ -130,15 +130,15 @@ void main()
 	vec3 pos = originPos.xyz;
 	uint objectID = uint(round(originPos.w));
 
-	if (objectID-- == 0)
-    {
-        vec4 origin = ubo.viewInverse * vec4(0.0f, 0.0f, 0.0f, 1.0f);
-        vec4 target = ubo.projInverse * vec4(d.x, d.y, 1.0f, 1.0f) ;    // (pixel position in EC) / Wc
-        vec3 direction = normalize(ubo.viewInverse * vec4(normalize(target.xyz), 0.0f)).xyz;
-        vec3 envColor = textureLod(samplerColor, direction, 0.0).rgb;
-        imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(envColor, 1.0f));
-        return;
-    }
+//	if (objectID-- == 0)
+//    {
+//        vec4 origin = ubo.viewInverse * vec4(0.0f, 0.0f, 0.0f, 1.0f);
+//        vec4 target = ubo.projInverse * vec4(d.x, d.y, 1.0f, 1.0f) ;    // (pixel position in EC) / Wc
+//        vec3 direction = normalize(ubo.viewInverse * vec4(normalize(target.xyz), 0.0f)).xyz;
+//        vec3 envColor = textureLod(samplerColor, direction, 0.0).rgb;
+//        imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(envColor, 1.0f));
+//        return;
+//    }
 
 
 	vec3 albedo = pow(texture(albedoSampler, inUV).rgb, vec3(2.2));
