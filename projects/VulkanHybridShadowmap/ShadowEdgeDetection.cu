@@ -167,42 +167,20 @@ __device__ float4 matMul4xVec4(const float* A, float4 B) {
 	return tmp;
 }
 
-__device__ float textureProj(cudaTextureObject_t shadowMapTexture, float4 shadowCoord, float2 offset, float mipLevelIdx)
+__device__ bool textureProj(cudaTextureObject_t shadowMapTexture, float4 shadowCoord, float mipLevelIdx)
 {
-	float shadow = 1.0;
+	bool shadowed = false;
 
 	if (shadowCoord.z > -1.0f && shadowCoord.z < 1.0f)
 	{
 		float dist = tex2DLod<float>(shadowMapTexture, shadowCoord.x, shadowCoord.y, mipLevelIdx);
 		if (shadowCoord.w > 0.0f && dist < shadowCoord.z)
 		{
-			shadow = 0.1f;
+			shadowed = true;
 		}
 	}
-	return shadow;
+	return shadowed;
 }
-
-__device__ float filterPCF(cudaTextureObject_t shadowMapTexture, float4 shadowCoord, int shadowMapSize, float mipLevelIdx)
-{
-	float scale = 1.5f;
-	float dx = scale * 1.0f / float(shadowMapSize);
-	float dy = scale * 1.0f / float(shadowMapSize);
-
-	float shadowFactor = 0.0f;
-	int count = 0;
-	int range = 2;
-
-	for (int x = -range; x <= range; x++)
-	{
-		for (int y = -range; y <= range; y++)
-		{
-			shadowFactor += textureProj(shadowMapTexture, shadowCoord, make_float2(dx * x, dy * y), mipLevelIdx);
-			count++;
-		}
-	}
-	return shadowFactor / count;
-}
-
 
 __global__ void sobelTest(cudaSurfaceObject_t* shadowEdgeTexture, cudaSurfaceObject_t* lightTexture, cudaTextureObject_t shadowMapTexture, cudaTextureObject_t positionTexture, size_t mipLevels, int width, int height, int shadowMapSize)
 {
@@ -211,25 +189,28 @@ __global__ void sobelTest(cudaSurfaceObject_t* shadowEdgeTexture, cudaSurfaceObj
 	for (uint32_t mipLevelIdx = 0; mipLevelIdx < mipLevels; mipLevelIdx++)
 	{
 		if (y < height && x < width) {
-			float px = 1.0 / width;
-			float py = 1.0 / height;
+			float px = 1.0f / width;
+			float py = 1.0f / height;
 
 			float4 pos = tex2DLod<float4>(positionTexture, x * px, y * py, (float)mipLevelIdx);
 			pos.w = 1.0f;
 
-			float4 temp = matMul4xVec4(&biasMat[0][0], pos);
-			float4 temp2 = matMul4xVec4(&d_depthBiasMVP[0][0], temp);
-			//printf("%f %f %f %f\n", temp2.x, temp2.y, temp2.z, temp2.w);
+			float4 temp = matMul4xVec4(d_depthBiasMVP, pos);
 
-			float4 shadowCoord = matMul4xVec4(&d_depthBiasMVP[0][0], matMul4xVec4(&biasMat[0][0], pos));
+			float4 shadowCoord = matMul4xVec4(biasMat, temp);
+
+
+			//printf("pos: %f %f %f %f\nd_depthBiasMVP: %f %f %f %f\n%f %f %f %f\n%f %f %f %f\n%f %f %f %f\ntemp: %f %f %f %f\n",
+			//	pos.x, pos.y, pos.z, pos.w, d_depthBiasMVP[0], d_depthBiasMVP[1], d_depthBiasMVP[2], d_depthBiasMVP[3], d_depthBiasMVP[4],
+			//	d_depthBiasMVP[5], d_depthBiasMVP[6], d_depthBiasMVP[7], d_depthBiasMVP[8], d_depthBiasMVP[9], d_depthBiasMVP[10],
+			//	d_depthBiasMVP[11], d_depthBiasMVP[12], d_depthBiasMVP[13], d_depthBiasMVP[14], d_depthBiasMVP[15], temp.x, temp.y, temp.z);
+
 			shadowCoord = make_float4(shadowCoord.x / shadowCoord.w, shadowCoord.y / shadowCoord.w, shadowCoord.z / shadowCoord.w, 1.0f);
-			float shadow = filterPCF(shadowMapTexture, shadowCoord, shadowMapSize, (float) mipLevels);
+
+			bool shadowed = textureProj(shadowMapTexture, shadowCoord, (float) mipLevels);
+			float shadow = shadowed ? 1.0f : 0.0f;
 
 			surf2Dwrite(shadow, shadowEdgeTexture[mipLevelIdx], x * 4, y);
-
-
-			//float4 t = tex2DLod<float4>(positionTexture, x * px, y * py, (float)mipLevelIdx);
-			//surf2Dwrite(t, lightTexture[mipLevelIdx], x * sizeof(float4), y);
 		}
 	}
 }

@@ -200,9 +200,9 @@ public:
 	// Use a smaller size on Android for performance reasons
 	const uint32_t shadowMapSize{ 1024 };
 #else
-	//const uint32_t shadowMapSize{ 16384 };
+	const uint32_t shadowMapSize{ 16384 };
 	//const uint32_t shadowMapSize{ 4096 };
-	const uint32_t shadowMapSize{ 128 };
+	//const uint32_t shadowMapSize{ 128 };
 
 #endif
 
@@ -2278,7 +2278,7 @@ public:
 		updateUniformBufferShadowmap();
 	}
 
-	float* transformToRowMajor4x4(glm::mat4 colMat, float* rowMat)
+	void transformToRowMajor4x4(glm::mat4 colMat, float* rowMat)
 	{
 		for (int i = 0; i < 4; i++) {
 			for (int j = 0; j < 4; j++)
@@ -2286,7 +2286,6 @@ public:
 				rowMat[i * 4 + j] = colMat[j][i];
 			}
 		}
-		return rowMat;
 	}
 
 	void updateUniformBufferShadowmap()
@@ -2317,6 +2316,14 @@ public:
 		uniformDataComposition.projInverse = glm::inverse(camera.matrices.perspective);
 		uniformDataComposition.viewInverse = glm::inverse(camera.matrices.view);
 		uniformDataComposition.depthBiasMVP = uniformDataShadowmap.depthMVP;
+
+		//printf("Host:\n");
+		//for (int i = 0; i < 4; i++) {
+		//	for (int j = 0; j < 4; j++)
+		//		printf("%f ", uniformDataComposition.depthBiasMVP[j][i]);
+		//	printf("\n");
+		//}
+
 		// This value is used to accumulate multiple frames into the finale picture
 		// It's required as ray tracing needs to do multiple passes for transparency
 		// In this sample we use noise offset by this frame index to shoot rays for transparency into different directions

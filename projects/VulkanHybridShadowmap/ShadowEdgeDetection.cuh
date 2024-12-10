@@ -11,14 +11,14 @@
 	}							\
 }
 
-__constant__ float d_viewInverse[4][4];
-__constant__ float d_projInverse[4][4];
-__constant__ float d_depthBiasMVP[4][4];
+__constant__ float d_viewInverse[16];
+__constant__ float d_projInverse[16];
+__constant__ float d_depthBiasMVP[16];
 __constant__ float d_lightPos[4];
-__constant__ float biasMat[4][4] = {	0.5, 0.0, 0.0, 0.0,
-										0.0, 0.5, 0.0, 0.0,
-										0.0, 0.0, 1.0, 0.0,
-										0.5, 0.5, 0.0, 1.0	};
+__constant__ float biasMat[16] = {	0.5, 0.0, 0.0, 0.0,
+									0.0, 0.5, 0.0, 0.0,
+									0.0, 0.0, 1.0, 0.0,
+									0.5, 0.5, 0.0, 1.0	};
 
 typedef unsigned char Pixel;
 

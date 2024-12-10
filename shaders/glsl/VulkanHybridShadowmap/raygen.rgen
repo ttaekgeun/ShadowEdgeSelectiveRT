@@ -295,10 +295,16 @@ void main()
 //	float depth = texture(shadowMap, inUV).r;
 //	pbrColor = vec3(1.0-LinearizeDepth(depth));
 
-	pbrColor = vec3(1.0f - texture(shadowMap, inUV).r);
+	//pbrColor = vec3(1.0f - texture(shadowMap, inUV).r);
 
 
-	//pbrColor = texture(posSampler, inUV).rgb;
+	pbrColor = vec3(texture(shadowMap, inUV).r, 0.0f, 0.0f);
+
+	//pbrColor = texture(lightMap, inUV).rgb;
+//	pbrColor = vec3(0.0f);
+//
+//	if (ShadowCoord.x / ShadowCoord.w < 0.0f || ShadowCoord.y / ShadowCoord.w < 0.0f)
+//		pbrColor = vec3(1.0f, 0.0f, 0.0f);
 
 	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(pbrColor, 1.0f));	// write a single texel into an image.
 }
