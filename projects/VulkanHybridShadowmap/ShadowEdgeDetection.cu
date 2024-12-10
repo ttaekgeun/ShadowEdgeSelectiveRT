@@ -148,7 +148,63 @@ __device__ unsigned short FloatToUShort(float value) {
 //	cg::sync(cta);
 //}
 
-__global__ void sobelTest(cudaSurfaceObject_t* shadowEdgeTexture, cudaSurfaceObject_t* lightTexture, cudaTextureObject_t shadowMapTexture, cudaTextureObject_t positionTexture, size_t mipLevels, int width, int height)
+__device__ void matMul4x4(float* C, const float* A, const float* B) {
+	for (int i = 0; i < 4; i++)
+		for (int j = 0; j < 4; j++) {
+			float tmp = 0.0;
+			for (int k = 0; k < 4; k++)
+				tmp += A[i * 4 + k] * B[4 * k + j];
+			C[i * 4 + j] = tmp;
+	}
+}
+
+__device__ float4 matMul4xVec4(const float* A, float4 B) {
+	float4 tmp = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+	tmp.x += A[0] * B.x + A[1] * B.y + A[2] * B.z + A[3] * B.w;
+	tmp.y += A[4] * B.x + A[5] * B.y + A[6] * B.z + A[7] * B.w;
+	tmp.z += A[8] * B.x + A[9] * B.y + A[10] * B.z + A[11] * B.w;
+	tmp.w += A[12] * B.x + A[13] * B.y + A[14] * B.z + A[15] * B.w;
+	return tmp;
+}
+
+__device__ float textureProj(cudaTextureObject_t shadowMapTexture, float4 shadowCoord, float2 offset, float mipLevelIdx)
+{
+	float shadow = 1.0;
+
+	if (shadowCoord.z > -1.0f && shadowCoord.z < 1.0f)
+	{
+		float dist = tex2DLod<float>(shadowMapTexture, shadowCoord.x, shadowCoord.y, mipLevelIdx);
+		if (shadowCoord.w > 0.0f && dist < shadowCoord.z)
+		{
+			shadow = 0.1f;
+		}
+	}
+	return shadow;
+}
+
+__device__ float filterPCF(cudaTextureObject_t shadowMapTexture, float4 shadowCoord, int shadowMapSize, float mipLevelIdx)
+{
+	float scale = 1.5f;
+	float dx = scale * 1.0f / float(shadowMapSize);
+	float dy = scale * 1.0f / float(shadowMapSize);
+
+	float shadowFactor = 0.0f;
+	int count = 0;
+	int range = 2;
+
+	for (int x = -range; x <= range; x++)
+	{
+		for (int y = -range; y <= range; y++)
+		{
+			shadowFactor += textureProj(shadowMapTexture, shadowCoord, make_float2(dx * x, dy * y), mipLevelIdx);
+			count++;
+		}
+	}
+	return shadowFactor / count;
+}
+
+
+__global__ void sobelTest(cudaSurfaceObject_t* shadowEdgeTexture, cudaSurfaceObject_t* lightTexture, cudaTextureObject_t shadowMapTexture, cudaTextureObject_t positionTexture, size_t mipLevels, int width, int height, int shadowMapSize)
 {
 	unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
 	unsigned int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -158,19 +214,28 @@ __global__ void sobelTest(cudaSurfaceObject_t* shadowEdgeTexture, cudaSurfaceObj
 			float px = 1.0 / width;
 			float py = 1.0 / height;
 
-			//float t = tex2DLod<float>(shadowMapTexture, x * px, y * px, (float)mipLevelIdx);
-			//t -= 0.005f;
-			//float t = 0;
-			//surf2Dwrite(t, shadowEdgeTexture[mipLevelIdx], x * 4, y);
+			float4 pos = tex2DLod<float4>(positionTexture, x * px, y * py, (float)mipLevelIdx);
+			pos.w = 1.0f;
 
-			float4 t = tex2DLod<float4>(positionTexture, x * px, y * px, (float)mipLevelIdx);
-			surf2Dwrite(t, lightTexture[mipLevelIdx], x * sizeof(float4), y);
+			float4 temp = matMul4xVec4(&biasMat[0][0], pos);
+			float4 temp2 = matMul4xVec4(&d_depthBiasMVP[0][0], temp);
+			//printf("%f %f %f %f\n", temp2.x, temp2.y, temp2.z, temp2.w);
+
+			float4 shadowCoord = matMul4xVec4(&d_depthBiasMVP[0][0], matMul4xVec4(&biasMat[0][0], pos));
+			shadowCoord = make_float4(shadowCoord.x / shadowCoord.w, shadowCoord.y / shadowCoord.w, shadowCoord.z / shadowCoord.w, 1.0f);
+			float shadow = filterPCF(shadowMapTexture, shadowCoord, shadowMapSize, (float) mipLevels);
+
+			surf2Dwrite(shadow, shadowEdgeTexture[mipLevelIdx], x * 4, y);
+
+
+			//float4 t = tex2DLod<float4>(positionTexture, x * px, y * py, (float)mipLevelIdx);
+			//surf2Dwrite(t, lightTexture[mipLevelIdx], x * sizeof(float4), y);
 		}
 	}
 }
 
 // Wrapper for the __global__ call that sets up the texture and threads
-extern "C" void sobelFilter(cudaSurfaceObject_t* shadowEdgeTexture, cudaSurfaceObject_t* lightTexture, cudaTextureObject_t shadowMapTexture, cudaTextureObject_t positionTexture, cudaStream_t streamToRun, size_t mipLevels, int width, int height) {
+extern "C" void sobelFilter(cudaSurfaceObject_t* shadowEdgeTexture, cudaSurfaceObject_t* lightTexture, cudaTextureObject_t shadowMapTexture, cudaTextureObject_t positionTexture, cudaStream_t streamToRun, size_t mipLevels, int width, int height, int shadowMapSize, float* projInverseMat, float* viewInverseMat, float* depthBiasMVPMat, float* lightPos) {
 //		dim3 threads(16, 4);
 //#ifndef FIXED_BLOCKWIDTH
 //		int BlockWidth = 80;  // must be divisible by 16 for coalescing
@@ -190,7 +255,13 @@ extern "C" void sobelFilter(cudaSurfaceObject_t* shadowEdgeTexture, cudaSurfaceO
 //#ifndef FIXED_BLOCKWIDTH
 //			BlockWidth, SharedPitch,
 //#endif
-//			iw, ih, fScale, texObject);
+//			iw, ih, fScale, texObject); 
 		//sobelTest << <blocks, threads, 0, streamToRun >> > (dstSurfMipMapArray, textureMipMapInput, mipLevels, width, height);
-		sobelTest << <numBlocks, threadsperBlock, 0, streamToRun >> > (shadowEdgeTexture, lightTexture, shadowMapTexture, positionTexture, mipLevels, width, height);
+
+		CUDA_CALL(cudaMemcpyToSymbol(d_projInverse, projInverseMat, sizeof(float) * 16));
+		CUDA_CALL(cudaMemcpyToSymbol(d_viewInverse, viewInverseMat, sizeof(float) * 16));
+		CUDA_CALL(cudaMemcpyToSymbol(d_depthBiasMVP, depthBiasMVPMat, sizeof(float) * 16));
+		CUDA_CALL(cudaMemcpyToSymbol(d_lightPos, lightPos, sizeof(float) * 4));
+
+		sobelTest << <numBlocks, threadsperBlock, 0, streamToRun >> > (shadowEdgeTexture, lightTexture, shadowMapTexture, positionTexture, mipLevels, width, height, shadowMapSize);
 }

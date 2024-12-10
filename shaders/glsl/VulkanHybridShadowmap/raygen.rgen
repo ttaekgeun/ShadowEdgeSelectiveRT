@@ -292,10 +292,12 @@ void main()
 	pbrColor = pow(pbrColor, vec3(1.0f / 2.2f));
 
 	// for shadow map debugging
-	float depth = texture(shadowMap, inUV).r;
-	pbrColor = vec3(1.0-LinearizeDepth(depth));
+//	float depth = texture(shadowMap, inUV).r;
+//	pbrColor = vec3(1.0-LinearizeDepth(depth));
 
-	pbrColor = texture(lightMap, inUV).rgb;
+	pbrColor = vec3(1.0f - texture(shadowMap, inUV).r);
+
+
 	//pbrColor = texture(posSampler, inUV).rgb;
 
 	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(pbrColor, 1.0f));	// write a single texel into an image.

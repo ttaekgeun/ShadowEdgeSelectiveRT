@@ -131,7 +131,7 @@ public:
 		alignas(16) glm::mat4 projInverse;
 		alignas(16) glm::mat4 depthBiasMVP;
 		alignas(4) uint32_t frame { 0 };
-		alignas(16) glm::vec4 lightPos[1];
+		alignas(16) glm::vec4 lightPos;
 	} uniformDataComposition;
 
 	struct UniformDataShadowmap {
@@ -200,8 +200,9 @@ public:
 	// Use a smaller size on Android for performance reasons
 	const uint32_t shadowMapSize{ 1024 };
 #else
-	const uint32_t shadowMapSize{ 16384 };
+	//const uint32_t shadowMapSize{ 16384 };
 	//const uint32_t shadowMapSize{ 4096 };
+	const uint32_t shadowMapSize{ 128 };
 
 #endif
 
@@ -2277,6 +2278,17 @@ public:
 		updateUniformBufferShadowmap();
 	}
 
+	float* transformToRowMajor4x4(glm::mat4 colMat, float* rowMat)
+	{
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++)
+			{
+				rowMat[i * 4 + j] = colMat[j][i];
+			}
+		}
+		return rowMat;
+	}
+
 	void updateUniformBufferShadowmap()
 	{
 		//shyun added begin
@@ -2312,12 +2324,12 @@ public:
 		uniformDataComposition.frame++;
 
 #if ASSET == 0
-		uniformDataComposition.lightPos[0] = glm::vec4(0.0f + cos(glm::radians(timer * 360.0f)) * 50.0f,
+		uniformDataComposition.lightPos = glm::vec4(0.0f + cos(glm::radians(timer * 360.0f)) * 50.0f,
 			100.0f, 0.0f + sin(glm::radians(timer * 360.0f)) * 15.0f, 1.0f);
 #elif ASSET == 1
-		uniformDataComposition.lightPos[0] = glm::vec4(1.0f, 100.0f, 0.0f, 1.0f);
+		uniformDataComposition.lightPos = glm::vec4(1.0f, 100.0f, 0.0f, 1.0f);
 #elif ASSET == 2
-		uniformDataComposition.lightPos[0] = glm::vec4(-0.911594f, 3.861007f, -1.508170f, 1.0f);
+		uniformDataComposition.lightPos = glm::vec4(-0.911594f, 3.861007f, -1.508170f, 1.0f);
 #endif
 
 		memcpy(uniformBuffers.composition.mapped, &uniformDataComposition, sizeof(uniformDataComposition));
@@ -2486,9 +2498,9 @@ public:
 
 	void createTextureImage() {
 		//Shadow Edge Texture
-		createImage(geometryFrameBuf.width, geometryFrameBuf.width, VK_FORMAT_R32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shadowEdgeTextureImage, shadowEdgeTextureImageMemory, shadowEdgeImageMemSize);
+		createImage(geometryFrameBuf.width, geometryFrameBuf.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shadowEdgeTextureImage, shadowEdgeTextureImageMemory, shadowEdgeImageMemSize);
 
-		transitionImageLayout(shadowEdgeTextureImage, VK_FORMAT_R32_SFLOAT,			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+		transitionImageLayout(shadowEdgeTextureImage, VK_FORMAT_R32_SFLOAT,	VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
 		//Light Texture
 		createImage(geometryFrameBuf.width, geometryFrameBuf.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, lightTextureImage, lightTextureImageMemory, lightImageMemSize);
@@ -2900,7 +2912,26 @@ public:
 	void cudaUpdateVkImage() {
 		cudaVkSemaphoreWait();
 
-		sobelFilter(d_surfaceObjectListShadowEdge, d_surfaceObjectListLight, textureObjShadowMap, textureObjPosition, streamToRun, mipLevels, geometryFrameBuf.width, geometryFrameBuf.height);
+		float projInverseMat[16], viewInverseMat[16], depthBiasMVPMat[16], lightPos[4];
+		//transformToRowMajor4x4(uniformDataComposition.projInverse, projInverseMat);
+		//CUDA_CALL(cudaMemcpyToSymbol(projInverse, projInverseMat, sizeof(float) * 16));
+
+		//transformToRowMajor4x4(uniformDataComposition.viewInverse, viewInverseMat);
+		//CUDA_CALL(cudaMemcpyToSymbol(viewInverse, viewInverseMat, sizeof(float) * 16));
+
+		//transformToRowMajor4x4(uniformDataComposition.depthBiasMVP, depthBiasMVPMat);
+		//CUDA_CALL(cudaMemcpyToSymbol(depthBiasMVP, depthBiasMVPMat, sizeof(float) * 16));
+
+		//CUDA_CALL(cudaMemcpyToSymbol(lightPos, &uniformDataComposition.lightPos, sizeof(float) * 3));
+
+		transformToRowMajor4x4(uniformDataComposition.projInverse, projInverseMat);
+		transformToRowMajor4x4(uniformDataComposition.viewInverse, viewInverseMat);
+		transformToRowMajor4x4(uniformDataComposition.depthBiasMVP, depthBiasMVPMat);
+
+		for (int i = 0; i < 4; i++)
+			lightPos[i] = uniformDataComposition.lightPos[i];
+
+		sobelFilter(d_surfaceObjectListShadowEdge, d_surfaceObjectListLight, textureObjShadowMap, textureObjPosition, streamToRun, mipLevels, geometryFrameBuf.width, geometryFrameBuf.height, shadowMapSize, projInverseMat, viewInverseMat, depthBiasMVPMat, lightPos);
 
 		cudaVkSemaphoreSignal(cudaUpdateDoneSemaphore);
 	}
