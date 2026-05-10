@@ -22,10 +22,7 @@ struct LightInfo {
 //	double outerConeAngle;
 //};
 
-LightInfo lightInfo[1] = {
-	LightInfo(vec3(1.0f, 1.0f, 1.0f), 180.0f, vec3(0.0f, 0.0f, 0.0f))/*,
-	LightInfo(vec3(1.0f, 0.5f, 0.0f), 20.0f, normalize(vec3(-0.3f, -1.0f, 0.0f)))*/
-};
+LightInfo lightInfo = LightInfo(vec3(1.0f, 1.0f, 1.0f), 180.0f, vec3(0.0f, 0.0f, 0.0f));
 
 //struct Light {
 //	vec3 color;

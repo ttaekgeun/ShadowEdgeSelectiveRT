@@ -77,10 +77,10 @@ void main()
 {
 	GeometryNode geometryNode = geometryNodes.nodes[nonuniformEXT(gl_GeometryIndexEXT)];
 
-	//	Triangle tri = unpackTriangle(gl_PrimitiveID, 112);
+
 	Triangle tri = unpackTriangle_2(gl_PrimitiveID, 112, geometryNode.vertexBufferDeviceAddress,
 														 geometryNode.indexBufferDeviceAddress);
-	//vec3 N = tri.normal;
+
 
 	#define DO_NORMAL_MAPPING
 	#ifdef DO_NORMAL_MAPPING
@@ -89,45 +89,16 @@ void main()
 	}
 	#endif
 
-	//vec3 albedo = tri.color.rgb;
 	if (nonuniformEXT(geometryNode.textureIndexBaseColor) > -1) {
 		tri.color.rgb = pow(texture(textures[nonuniformEXT(geometryNode.textureIndexBaseColor)], tri.uv).rgb * tri.color.rgb, vec3(2.2));
 	}
 
-//	vec3 aoMetallicRoughness = texture(textures[nonuniformEXT(geometryNode.textureIndexMetallicRoughness)], tri.uv).rgb;
 	vec3 ao_roughness_metallic = texture(textures[nonuniformEXT(geometryNode.textureIndexMetallicRoughness)], tri.uv).rgb;
-//	float metallic = aoMetallicRoughness.b;
-//	float roughness = aoMetallicRoughness.g;
-//	float ao = aoMetallicRoughness.r;
 
-	// vec3 pbr_color = vec3(0.0f);
 	rayPayload.color = vec3(0.0f);
 
-	// vec3 ambient = vec3(0.05f) * tri.color.rgb;
-
-	// vec3 pbrColor = vec3(0.05f) * tri.color.rgb + emissive + Lo;
-
-	// vec3 emissive = vec3(0.0f);
-//	if (textureIndexEmissive > -1) // emission
-//		rayPayload.color += texture(textures[nonuniformEXT(textureIndexEmissive)], tri.uv).rgb;
 
 	vec3 V = normalize(vec3(0.0f, 0.0f, 0.0f) - tri.pos);
-//	float Kr = geometryNode.reflectance;
-//	float Kt = geometryNode.refractance;
-
-//	if (Kr>0.0f || Kt>0.0f){
-//		tri.color.rgb = vec3(0.0f);
-//	}
-
-	rayPayload.effectFlag = 0x0;
-	if (geometryNode.reflectance > 0.0f) { // Kr
-		rayPayload.effectFlag = 0x1;
-		tri.color.rgb = vec3(0.0f);
-	}
-	else if (geometryNode.refractance > 0.0f) { // Kt
-		rayPayload.effectFlag = 0x10;
-		tri.color.rgb = vec3(0.0f);
-	}
 
 	rayPayload.color += vec3(0.05f) * tri.color.rgb; // ambient (reflection?)
 
@@ -207,44 +178,21 @@ void main()
 #endif
 		}
 		if (!shadowed) {
-			// Spot light unused
-			/*vec3 spot = vec3(1.0f);
-			if (lightInfo[i].spotCutoff != 180.0f) {
-				spot = CalculateSpotLight(pos, i, lightInfo[i], ubo.lightPos[i]);
-			}*/
+
 
 			vec3 L = normalize(ubo.lightPos[i].xyz - tri.pos);
-
 			vec3 H = normalize(V + L);
-
-			// vec3 radiance = lightInfo[i].color;
-			// Light attenuation unused
-			/*float dist = length(ubo.lightPos[i].xyz - pos); 
-			radiance = ApplyAttenuation(lightInfo[i].color, dist);*/
-
-//			float NDF = DistributionGGX(tri.normal, H, ao_roughness_metallic.g);
-//			float G   = GeometrySmith(tri.normal, V, L, ao_roughness_metallic.g);      
 			vec3 F    = FresnelSchlick(max(dot(H, V), 0.0f), F0);
-           
-	//		vec3 numerator    = NDF * G * F; 
-	//		float denominator = 4.0 * max(dot(tri.normal, V), 0.0f) * max(dot(tri.normal, L), 0.0f) + 0.0001f; 
 			vec3 specular = ( DistributionGGX(tri.normal, H, ao_roughness_metallic.g)
 									* GeometrySmith(tri.normal, V, L, ao_roughness_metallic.g) * F)
 									/ (4.0 * max(dot(tri.normal, V), 0.0f) * max(dot(tri.normal, L), 0.0f) + 0.0001f);
-        
-			// vec3 kS = F;
-
 			vec3 kD = vec3(1.0f) - F;	// kS = F
 	
-			kD *= 1.0f - ao_roughness_metallic.b;	  
+			kD *= 1.0f - ao_roughness_metallic.b;	       
 
-			// float NdotL = max(dot(tri.normal, L), 0.0f);        
-
-			rayPayload.color += (kD * tri.color.rgb / PI + specular) * lightInfo[i].color * max(dot(tri.normal, L), 0.0f); // direct lighting
+			rayPayload.color += (kD * tri.color.rgb / PI + specular) * lightInfo.color * max(dot(tri.normal, L), 0.0f); // direct lighting
 		}
     }   
- 
-//	rayPayload.color = pbrColor;
 	rayPayload.distance = gl_RayTmaxEXT;
 	rayPayload.normal = tri.normal;
 }

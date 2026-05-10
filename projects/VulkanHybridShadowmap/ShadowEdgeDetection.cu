@@ -7,146 +7,34 @@
 namespace cg = cooperative_groups;
 
 #define RADIUS 1
+extern __shared__ float LocalBlock[];
 
-//#ifdef FIXED_BLOCKWIDTH
-//#define BlockWidth 80
-//#define SharedPitch 384
-//#endif
+// This will output the proper CUDA error strings in the event that a CUDA host
+// call returns an error
+__device__ float ComputeSobel(float ul,  // upper left
+	float um,  // upper middle
+	float ur,  // upper right
+	float ml,  // middle left
+	float mm,  // middle (unused)
+	float mr,  // middle right
+	float ll,  // lower left
+	float lm,  // lower middle
+	float lr  // lower right
+	)
+{
+	double Horz = ur + 2 * mr + lr - ul - 2 * ml - ll;
+	double Vert = ul + 2 * um + ur - ll - 2 * lm - lr;
+	double Sum = (double)((fabs((float)Horz) + fabs((float)Vert)));
 
-// convert floating point rgba color to 16-bit integer
-__device__ unsigned short FloatToUShort(float value) {
-	//rgba.x = __saturatef(rgba.x);  // clamp to [0.0, 1.0]
-	//rgba.y = __saturatef(rgba.y);
-	//rgba.z = __saturatef(rgba.z);
-	//rgba.w = __saturatef(rgba.w);
-	//return ((unsigned int)(rgba.w * 255.0f) << 24) |
-	//	((unsigned int)(rgba.z * 255.0f) << 16) |
-	//	((unsigned int)(rgba.y * 255.0f) << 8) |
-	//	((unsigned int)(rgba.x * 255.0f));
-	value = __saturatef(value);
-	return (unsigned short)(value * 65535.0f);  // 65535 == 2^16 - 1
+	if (Sum < 0) {
+		return 0;
+	}
+	else if (Sum > 0xffff) {
+		return 0xffff;
+	}
+
+	return (float)Sum;
 }
-
-//// This will output the proper CUDA error strings in the event that a CUDA host
-//// call returns an error
-//__device__ unsigned char ComputeSobel(unsigned char ul,  // upper left
-//	unsigned char um,  // upper middle
-//	unsigned char ur,  // upper right
-//	unsigned char ml,  // middle left
-//	unsigned char mm,  // middle (unused)
-//	unsigned char mr,  // middle right
-//	unsigned char ll,  // lower left
-//	unsigned char lm,  // lower middle
-//	unsigned char lr,  // lower right
-//	float fScale) {
-//	short Horz = ur + 2 * mr + lr - ul - 2 * ml - ll;
-//	short Vert = ul + 2 * um + ur - ll - 2 * lm - lr;
-//	short Sum = (short)(fScale * (abs((int)Horz) + abs((int)Vert)));
-//
-//	if (Sum < 0) {
-//		return 0;
-//	}
-//	else if (Sum > 0xff) {
-//		return 0xff;
-//	}
-//
-//	return (unsigned char)Sum;
-//}
-//
-//__global__ void SobelShared(uchar4* pSobelOriginal, unsigned short SobelPitch,
-//#ifndef FIXED_BLOCKWIDTH
-//	short BlockWidth, short SharedPitch,
-//#endif
-//	short w, short h, float fScale,
-//	cudaTextureObject_t tex) {
-//	// Handle to thread block group
-//	cg::thread_block cta = cg::this_thread_block();
-//	short u = 4 * blockIdx.x * BlockWidth;
-//	short v = blockIdx.y * blockDim.y + threadIdx.y;
-//	short ib;
-//
-//	int SharedIdx = threadIdx.y * SharedPitch;
-//
-//	for (ib = threadIdx.x; ib < BlockWidth + 2 * RADIUS; ib += blockDim.x) {
-//		LocalBlock[SharedIdx + 4 * ib + 0] = tex2D<unsigned char>(
-//			tex, (float)(u + 4 * ib - RADIUS + 0), (float)(v - RADIUS));
-//		LocalBlock[SharedIdx + 4 * ib + 1] = tex2D<unsigned char>(
-//			tex, (float)(u + 4 * ib - RADIUS + 1), (float)(v - RADIUS));
-//		LocalBlock[SharedIdx + 4 * ib + 2] = tex2D<unsigned char>(
-//			tex, (float)(u + 4 * ib - RADIUS + 2), (float)(v - RADIUS));
-//		LocalBlock[SharedIdx + 4 * ib + 3] = tex2D<unsigned char>(
-//			tex, (float)(u + 4 * ib - RADIUS + 3), (float)(v - RADIUS));
-//	}
-//
-//	if (threadIdx.y < RADIUS * 2) {
-//		//
-//		// copy trailing RADIUS*2 rows of pixels into shared
-//		//
-//		SharedIdx = (blockDim.y + threadIdx.y) * SharedPitch;
-//
-//		for (ib = threadIdx.x; ib < BlockWidth + 2 * RADIUS; ib += blockDim.x) {
-//			LocalBlock[SharedIdx + 4 * ib + 0] =
-//				tex2D<unsigned char>(tex, (float)(u + 4 * ib - RADIUS + 0),
-//					(float)(v + blockDim.y - RADIUS));
-//			LocalBlock[SharedIdx + 4 * ib + 1] =
-//				tex2D<unsigned char>(tex, (float)(u + 4 * ib - RADIUS + 1),
-//					(float)(v + blockDim.y - RADIUS));
-//			LocalBlock[SharedIdx + 4 * ib + 2] =
-//				tex2D<unsigned char>(tex, (float)(u + 4 * ib - RADIUS + 2),
-//					(float)(v + blockDim.y - RADIUS));
-//			LocalBlock[SharedIdx + 4 * ib + 3] =
-//				tex2D<unsigned char>(tex, (float)(u + 4 * ib - RADIUS + 3),
-//					(float)(v + blockDim.y - RADIUS));
-//		}
-//	}
-//
-//	cg::sync(cta);
-//
-//	u >>= 2;  // index as uchar4 from here
-//	uchar4* pSobel = (uchar4*)(((char*)pSobelOriginal) + v * SobelPitch);
-//	SharedIdx = threadIdx.y * SharedPitch;
-//
-//	for (ib = threadIdx.x; ib < BlockWidth; ib += blockDim.x) {
-//		unsigned char pix00 = LocalBlock[SharedIdx + 4 * ib + 0 * SharedPitch + 0];
-//		unsigned char pix01 = LocalBlock[SharedIdx + 4 * ib + 0 * SharedPitch + 1];
-//		unsigned char pix02 = LocalBlock[SharedIdx + 4 * ib + 0 * SharedPitch + 2];
-//		unsigned char pix10 = LocalBlock[SharedIdx + 4 * ib + 1 * SharedPitch + 0];
-//		unsigned char pix11 = LocalBlock[SharedIdx + 4 * ib + 1 * SharedPitch + 1];
-//		unsigned char pix12 = LocalBlock[SharedIdx + 4 * ib + 1 * SharedPitch + 2];
-//		unsigned char pix20 = LocalBlock[SharedIdx + 4 * ib + 2 * SharedPitch + 0];
-//		unsigned char pix21 = LocalBlock[SharedIdx + 4 * ib + 2 * SharedPitch + 1];
-//		unsigned char pix22 = LocalBlock[SharedIdx + 4 * ib + 2 * SharedPitch + 2];
-//
-//		uchar4 out;
-//
-//		out.x = ComputeSobel(pix00, pix01, pix02, pix10, pix11, pix12, pix20, pix21,
-//			pix22, fScale);
-//
-//		pix00 = LocalBlock[SharedIdx + 4 * ib + 0 * SharedPitch + 3];
-//		pix10 = LocalBlock[SharedIdx + 4 * ib + 1 * SharedPitch + 3];
-//		pix20 = LocalBlock[SharedIdx + 4 * ib + 2 * SharedPitch + 3];
-//		out.y = ComputeSobel(pix01, pix02, pix00, pix11, pix12, pix10, pix21, pix22,
-//			pix20, fScale);
-//
-//		pix01 = LocalBlock[SharedIdx + 4 * ib + 0 * SharedPitch + 4];
-//		pix11 = LocalBlock[SharedIdx + 4 * ib + 1 * SharedPitch + 4];
-//		pix21 = LocalBlock[SharedIdx + 4 * ib + 2 * SharedPitch + 4];
-//		out.z = ComputeSobel(pix02, pix00, pix01, pix12, pix10, pix11, pix22, pix20,
-//			pix21, fScale);
-//
-//		pix02 = LocalBlock[SharedIdx + 4 * ib + 0 * SharedPitch + 5];
-//		pix12 = LocalBlock[SharedIdx + 4 * ib + 1 * SharedPitch + 5];
-//		pix22 = LocalBlock[SharedIdx + 4 * ib + 2 * SharedPitch + 5];
-//		out.w = ComputeSobel(pix00, pix01, pix02, pix10, pix11, pix12, pix20, pix21,
-//			pix22, fScale);
-//
-//		if (u + ib < w / 4 && v < h) {
-//			pSobel[u + ib] = out;
-//		}
-//	}
-//
-//	cg::sync(cta);
-//}
 
 __device__ void matMul4x4(float* C, const float* A, const float* B) {
 	for (int i = 0; i < 4; i++)
@@ -182,67 +70,117 @@ __device__ bool textureProj(cudaTextureObject_t shadowMapTexture, float4 shadowC
 	return shadowed;
 }
 
-__global__ void sobelTest(cudaSurfaceObject_t* shadowEdgeTexture, cudaSurfaceObject_t* lightTexture, cudaTextureObject_t shadowMapTexture, cudaTextureObject_t positionTexture, size_t mipLevels, int width, int height, int shadowMapSize)
+__device__ float calculateShadow(cudaTextureObject_t positionTexture, cudaTextureObject_t shadowMapTexture, uint32_t mipLevelIdx, unsigned int x, unsigned int y, float px, float py)
 {
+	float4 pos = tex2DLod<float4>(positionTexture, x * px, y * py, (float)mipLevelIdx);
+	pos.w = 1.0f;
+
+	float4 temp = matMul4xVec4(d_depthBiasMVP, pos);
+	float4 shadowCoord = matMul4xVec4(d_biasMat, temp);
+
+	shadowCoord = make_float4(shadowCoord.x / shadowCoord.w, shadowCoord.y / shadowCoord.w, shadowCoord.z / shadowCoord.w, 1.0f);
+
+	bool shadowed = textureProj(shadowMapTexture, shadowCoord, (float) mipLevelIdx);
+
+	float shadow = shadowed;
+
+	return shadow;
+}
+
+__global__ void sobelFilterKernel(cudaSurfaceObject_t* __restrict shadowEdgeTexture, cudaSurfaceObject_t* __restrict lightTexture, cudaTextureObject_t shadowMapTexture, cudaTextureObject_t positionTexture, size_t mipLevels, int width, int height, int shadowMapSize)
+{
+	cg::thread_block cta = cg::this_thread_block();
+
 	unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
 	unsigned int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	float px = 1.0f / width;
+	float py = 1.0f / height;
+
 	for (uint32_t mipLevelIdx = 0; mipLevelIdx < mipLevels; mipLevelIdx++)
 	{
-		if (y < height && x < width) {
-			float px = 1.0f / width;
-			float py = 1.0f / height;
+		float shadow = calculateShadow(positionTexture, shadowMapTexture, mipLevelIdx, x, y, px, py);
+		LocalBlock[(threadIdx.x + 1) + (blockDim.x + 2) * (threadIdx.y + 1)] = shadow;
 
-			float4 pos = tex2DLod<float4>(positionTexture, x * px, y * py, (float)mipLevelIdx);
-			pos.w = 1.0f;
+		float4 temp = make_float4(shadow, 0.0f, 0.0f, 0.0f);
+		surf2Dwrite(temp, lightTexture[mipLevelIdx], x * 16, y);
 
-			float4 temp = matMul4xVec4(d_depthBiasMVP, pos);
-
-			float4 shadowCoord = matMul4xVec4(biasMat, temp);
-
-
-			//printf("pos: %f %f %f %f\nd_depthBiasMVP: %f %f %f %f\n%f %f %f %f\n%f %f %f %f\n%f %f %f %f\ntemp: %f %f %f %f\n",
-			//	pos.x, pos.y, pos.z, pos.w, d_depthBiasMVP[0], d_depthBiasMVP[1], d_depthBiasMVP[2], d_depthBiasMVP[3], d_depthBiasMVP[4],
-			//	d_depthBiasMVP[5], d_depthBiasMVP[6], d_depthBiasMVP[7], d_depthBiasMVP[8], d_depthBiasMVP[9], d_depthBiasMVP[10],
-			//	d_depthBiasMVP[11], d_depthBiasMVP[12], d_depthBiasMVP[13], d_depthBiasMVP[14], d_depthBiasMVP[15], temp.x, temp.y, temp.z);
-
-			shadowCoord = make_float4(shadowCoord.x / shadowCoord.w, shadowCoord.y / shadowCoord.w, shadowCoord.z / shadowCoord.w, 1.0f);
-
-			bool shadowed = textureProj(shadowMapTexture, shadowCoord, (float) mipLevels);
-			float shadow = shadowed ? 1.0f : 0.0f;
-
-			surf2Dwrite(shadow, shadowEdgeTexture[mipLevelIdx], x * 4, y);
+		int side_left = 0, side_right = 0;
+		if (threadIdx.x < 1)
+		{
+			float shadow = calculateShadow(positionTexture, shadowMapTexture, mipLevelIdx, x - 1, y, px, py);
+			LocalBlock[(threadIdx.x) + (blockDim.x + 2) * (threadIdx.y + 1)] = shadow;
+			side_left = 1;
 		}
+		else if (threadIdx.x >= blockDim.x - 1)
+		{
+			float shadow = calculateShadow(positionTexture, shadowMapTexture, mipLevelIdx, x + 1, y, px, py);
+			LocalBlock[(threadIdx.x + 2) + (blockDim.x + 2) * (threadIdx.y + 1)] = shadow;
+			side_right = 1;
+		}
+
+		if (threadIdx.y < 1)
+		{
+			float shadow = calculateShadow(positionTexture, shadowMapTexture, mipLevelIdx, x, y - 1, px, py);
+			LocalBlock[(threadIdx.x + 1) + (blockDim.x + 2) * (threadIdx.y)] = shadow;
+			if (side_left == 1) {
+				shadow = calculateShadow(positionTexture, shadowMapTexture,  mipLevelIdx, x - 1, y - 1, px, py);
+				LocalBlock[(threadIdx.x) + (blockDim.x + 2) * (threadIdx.y)] = shadow;
+			}
+			if (side_right == 1) {
+				shadow = calculateShadow(positionTexture, shadowMapTexture, mipLevelIdx, x + 1, y - 1, px, py);
+				LocalBlock[(threadIdx.x + 2) + (blockDim.x + 2) * (threadIdx.y)] = shadow;
+			}
+		}
+		else if (threadIdx.y >= blockDim.y - 1)
+		{
+			float shadow = calculateShadow(positionTexture, shadowMapTexture, mipLevelIdx, x, y + 1, px, py);
+			LocalBlock[(threadIdx.x + 1) + (blockDim.x + 2) * (threadIdx.y + 2)] = shadow;
+
+			if (side_left == 1) {
+				shadow = calculateShadow(positionTexture, shadowMapTexture, mipLevelIdx, x - 1, y + 1, px, py);
+				LocalBlock[(threadIdx.x) + (blockDim.x + 2) * (threadIdx.y + 2)] = shadow;
+			}
+			if (side_right == 1) {
+				shadow = calculateShadow(positionTexture, shadowMapTexture, mipLevelIdx, x + 1, y + 1, px, py);
+				LocalBlock[(threadIdx.x + 2) + (blockDim.x + 2) * (threadIdx.y + 2)] = shadow;
+			}
+		}
+		cg::sync(cta);
+
+		float pix00 = LocalBlock[(threadIdx.x) + (blockDim.x + 2) * (threadIdx.y)];
+		float pix01 = LocalBlock[(threadIdx.x + 1) + (blockDim.x + 2) * (threadIdx.y)];
+		float pix02 = LocalBlock[(threadIdx.x + 2) + (blockDim.x + 2) * (threadIdx.y)];
+		float pix10 = LocalBlock[(threadIdx.x) + (blockDim.x + 2) * (threadIdx.y + 1)];
+		float pix11 = LocalBlock[(threadIdx.x + 1) + (blockDim.x + 2) * (threadIdx.y + 1)];
+		float pix12 = LocalBlock[(threadIdx.x + 2) + (blockDim.x + 2) * (threadIdx.y + 1)];
+		float pix20 = LocalBlock[(threadIdx.x) + (blockDim.x + 2) * (threadIdx.y + 2)];
+		float pix21 = LocalBlock[(threadIdx.x + 1) + (blockDim.x + 2) * (threadIdx.y + 2)];
+		float pix22 = LocalBlock[(threadIdx.x + 2) + (blockDim.x + 2) * (threadIdx.y + 2)];
+
+		float out = ComputeSobel(pix00, pix01, pix02, pix10, pix11, pix12, pix20, pix21, pix22);
+
+		if (x  < width && y < height) {
+			surf2Dwrite(out, shadowEdgeTexture[mipLevelIdx], x * 4, y);
+		}
+		cg::sync(cta);
 	}
 }
 
 // Wrapper for the __global__ call that sets up the texture and threads
 extern "C" void sobelFilter(cudaSurfaceObject_t* shadowEdgeTexture, cudaSurfaceObject_t* lightTexture, cudaTextureObject_t shadowMapTexture, cudaTextureObject_t positionTexture, cudaStream_t streamToRun, size_t mipLevels, int width, int height, int shadowMapSize, float* projInverseMat, float* viewInverseMat, float* depthBiasMVPMat, float* lightPos) {
-//		dim3 threads(16, 4);
-//#ifndef FIXED_BLOCKWIDTH
-//		int BlockWidth = 80;  // must be divisible by 16 for coalescing
-//#endif
-//		dim3 blocks = dim3(width / (4 * BlockWidth) + (0 != width % (4 * BlockWidth)),
-//			height / threads.y + (0 != height % threads.y));
-//		int SharedPitch = ~0x3f & (4 * (BlockWidth + 2 * RADIUS) + 0x3f);
-//		int sharedMem = SharedPitch * (threads.y + 2 * RADIUS);
-//
-//		// for the shared kernel, width must be divisible by 4
-//		width &= ~3;
-		dim3 threadsperBlock(32, 32);
-		dim3 numBlocks((width + threadsperBlock.x - 1) / threadsperBlock.x,
-			(height + threadsperBlock.y - 1) / threadsperBlock.y);
+	
+	CUDA_CALL(cudaMemcpyToSymbol(d_projInverse, projInverseMat, sizeof(float) * 16));
+	CUDA_CALL(cudaMemcpyToSymbol(d_viewInverse, viewInverseMat, sizeof(float) * 16));
+	CUDA_CALL(cudaMemcpyToSymbol(d_depthBiasMVP, depthBiasMVPMat, sizeof(float) * 16));
+	CUDA_CALL(cudaMemcpyToSymbol(d_lightPos, lightPos, sizeof(float) * 4));
 
-//		SobelShared << <blocks, threads, sharedMem >> > ((uchar4*)odata, iw,
-//#ifndef FIXED_BLOCKWIDTH
-//			BlockWidth, SharedPitch,
-//#endif
-//			iw, ih, fScale, texObject); 
-		//sobelTest << <blocks, threads, 0, streamToRun >> > (dstSurfMipMapArray, textureMipMapInput, mipLevels, width, height);
 
-		CUDA_CALL(cudaMemcpyToSymbol(d_projInverse, projInverseMat, sizeof(float) * 16));
-		CUDA_CALL(cudaMemcpyToSymbol(d_viewInverse, viewInverseMat, sizeof(float) * 16));
-		CUDA_CALL(cudaMemcpyToSymbol(d_depthBiasMVP, depthBiasMVPMat, sizeof(float) * 16));
-		CUDA_CALL(cudaMemcpyToSymbol(d_lightPos, lightPos, sizeof(float) * 4));
 
-		sobelTest << <numBlocks, threadsperBlock, 0, streamToRun >> > (shadowEdgeTexture, lightTexture, shadowMapTexture, positionTexture, mipLevels, width, height, shadowMapSize);
+	dim3 threads(32, 32);
+
+	dim3 blocks = dim3((width + threads.x - 1) / (threads.x), (height + threads.y - 1) / threads.y);
+	int sharedMem = (threads.x + 2) * (threads.y + 2) * sizeof(float);
+
+	sobelFilterKernel << <blocks, threads, sharedMem, streamToRun >> > (shadowEdgeTexture, lightTexture, shadowMapTexture, positionTexture, mipLevels, width, height, shadowMapSize);
 }

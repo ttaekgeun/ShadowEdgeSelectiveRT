@@ -70,7 +70,7 @@ public:
 	VulkanFullRT() : VulkanRTCommon()
 	{
 		title = "Sogang Univ - Vulkan Full Ray Tracing";
-
+		settings.overlay = false;
 		camera.type = Camera::CameraType::SG_camera;
 		camera.movementSpeed = 20.0f;
 		camera.setPerspective(60.0f, (float)width / (float)height, 0.1f, 5000.0f);
@@ -88,14 +88,14 @@ public:
 #endif
 #elif ASSET == 1
 #if VIEW == 0
-		camera.setTranslation(glm::vec3(1.146842, 2.282518, 1.067378));
-		camera.setRotation(glm::vec3(-22.524939, 58.374725, 0.000000));
+		camera.setTranslation(glm::vec3(-18.406582, 9.595956, 4.509371));
+		camera.setRotation(glm::vec3(-9.899930, -98.175301, 0.000000));
 #elif VIEW == 1
-		camera.setTranslation(glm::vec3(-6.497121, 1.637290, -1.421643));
-		camera.setRotation(glm::vec3(10.925017, -102.249245, 0.000000));
+		camera.setTranslation(glm::vec3(57.628574, 9.773235, 54.462196));
+		camera.setRotation(glm::vec3(-8.674820, 300.574829, 0.000000));
 #elif VIEW == 2
-		camera.setTranslation(glm::vec3(4.291043, 4.683933, -1.352913));
-		camera.setRotation(glm::vec3(-20.874960, 106.026215, 0.000000));
+		camera.setTranslation(glm::vec3(-14.177431, 4.013630, 11.085687));
+		camera.setRotation(glm::vec3(1.450154, 707.172363, 0.000000));
 #endif
 #elif ASSET == 2
 #if VIEW == 0

@@ -41,7 +41,7 @@ layout(binding = 3) uniform uniformBuffer
 	mat4 projInverse;
 	mat4 lightSpace;
 	uint frame;
-	vec4 lightPos[1];
+	vec4 lightPos;
 } ubo;
 layout(binding = 10) uniform sampler2D shadowMap;
 layout(binding = 11) uniform sampler2D lightMap;
@@ -147,41 +147,39 @@ void main()
 
 	vec4 ShadowCoord;
 	float shadow;
-	for(int i = 0; i < numOfLights; i++) {
 
-		ShadowCoord = ( biasMat * ubo.lightSpace ) * vec4(pos, 1.0);
-		//shadow = textureProj(ShadowCoord / ShadowCoord.w, vec2(0.0));	// No PCF version.
-		shadow = filterPCF(ShadowCoord / ShadowCoord.w);
-		shadowed = (shadow != 1.0f);
+	ShadowCoord = ( biasMat * ubo.lightSpace ) * vec4(pos, 1.0);
+	//shadow = textureProj(ShadowCoord / ShadowCoord.w, vec2(0.0));	// No PCF version.
+	shadow = filterPCF(ShadowCoord / ShadowCoord.w);
+	shadowed = (shadow != 1.0f);
 
-		// Light attenuation unused
-		if (!shadowed) {
-			vec3 L = normalize(ubo.lightPos[i].xyz - pos);
+	// Light attenuation unused
+	shadow = texture(shadowMap, tri.uv).r;
+	if (shadow == 0.0f) {
+		vec3 L = normalize(ubo.lightPos.xyz - pos);
 
-			vec3 H = normalize(V + L);
+		vec3 H = normalize(V + L);
 
-			vec3 radiance = lightInfo[i].color;
+		vec3 radiance = lightInfo.color;
 
-			float NDF = DistributionGGX(N, H, roughness);
-			float G   = GeometrySmith(N, V, L, roughness);      
-			vec3 F    = FresnelSchlick(max(dot(H, V), 0.0), F0);
+		float NDF = DistributionGGX(N, H, roughness);
+		float G   = GeometrySmith(N, V, L, roughness);      
+		vec3 F    = FresnelSchlick(max(dot(H, V), 0.0), F0);
            
-			vec3 numerator    = NDF * G * F; 
-			float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001; 
-			vec3 specular = numerator / denominator;
+		vec3 numerator    = NDF * G * F; 
+		float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001; 
+		vec3 specular = numerator / denominator;
         
-			vec3 kS = F;
+		vec3 kS = F;
 
-			vec3 kD = vec3(1.0) - kS;
+		vec3 kD = vec3(1.0) - kS;
 
-			kD *= 1.0 - metallic;	  
+		kD *= 1.0 - metallic;	  
 
-			float NdotL = max(dot(N, L), 0.0);        
+		float NdotL = max(dot(N, L), 0.0);        
 
-			Lo += (kD * albedo / PI + specular) * radiance * NdotL;
-		}
-    }
-	
+		Lo += (kD * albedo / PI + specular) * radiance * NdotL;
+    }	
 	vec3 ambient = vec3(0.05) * albedo;
 
 	vec3 pbrColor = ambient + Lo;// + emissive;

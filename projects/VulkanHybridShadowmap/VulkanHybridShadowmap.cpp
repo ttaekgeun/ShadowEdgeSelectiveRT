@@ -200,9 +200,8 @@ public:
 	// Use a smaller size on Android for performance reasons
 	const uint32_t shadowMapSize{ 1024 };
 #else
-	const uint32_t shadowMapSize{ 16384 };
-	//const uint32_t shadowMapSize{ 4096 };
-	//const uint32_t shadowMapSize{ 128 };
+	//const uint32_t shadowMapSize{ 16384 };
+	const uint32_t shadowMapSize{ 4096 };
 
 #endif
 
@@ -290,6 +289,7 @@ public:
 
 	VulkanHybridShadowmap() : VulkanRTCommon()
 	{
+		settings.overlay = false;
 		title = "Sogang Univ - Vulkan Hybrid with Shadow mapping";
 		camera.type = Camera::CameraType::SG_camera;
 		camera.movementSpeed = 20.0f;
@@ -311,14 +311,14 @@ public:
 #endif
 #elif ASSET == 1
 #if VIEW == 0
-		camera.setTranslation(glm::vec3(1.146842, 2.282518, 1.067378));
-		camera.setRotation(glm::vec3(-22.524939, 58.374725, 0.000000));
+		camera.setTranslation(glm::vec3(-18.406582, 9.595956, 4.509371));
+		camera.setRotation(glm::vec3(-9.899930, -98.175301, 0.000000));
 #elif VIEW == 1
-		camera.setTranslation(glm::vec3(-6.497121, 1.637290, -1.421643));
-		camera.setRotation(glm::vec3(10.925017, -102.249245, 0.000000));
+		camera.setTranslation(glm::vec3(57.628574, 9.773235, 54.462196));
+		camera.setRotation(glm::vec3(-8.674820, 300.574829, 0.000000));
 #elif VIEW == 2
-		camera.setTranslation(glm::vec3(4.291043, 4.683933, -1.352913));
-		camera.setRotation(glm::vec3(-20.874960, 106.026215, 0.000000));
+		camera.setTranslation(glm::vec3(-14.177431, 4.013630, 11.085687));
+		camera.setRotation(glm::vec3(1.450154, 707.172363, 0.000000));
 #endif
 #elif ASSET == 2
 #if VIEW == 0
@@ -2023,6 +2023,10 @@ public:
 				shadowEdgeTextureSampler,
 				shadowEdgeTextureImageView,
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+				//shadowmapFrameBuf.depthSampler,
+				//shadowmapFrameBuf.depth.view,
+				//VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
 		writeDescriptorSets.push_back(vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10, &shadowMapDescriptor));
 
 		// Binding 11 : light
@@ -2216,19 +2220,6 @@ public:
 			shaderGroups.push_back(shaderGroup);
 		}
 
-		// Closest hit group : Reflection / Transmission
-		{
-			shaderStagesRT.push_back(loadShader(getShadersPath() + DIR_PATH + "closesthit.rchit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
-			VkRayTracingShaderGroupCreateInfoKHR shaderGroup{};
-			shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
-			shaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
-			shaderGroup.generalShader = VK_SHADER_UNUSED_KHR;
-			shaderGroup.closestHitShader = static_cast<uint32_t>(shaderStagesRT.size()) - 1;
-			shaderGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
-			shaderGroup.anyHitShader = anyHitIdx;
-			shaderGroups.push_back(shaderGroup);
-		}
-
 		/*
 			Create the ray tracing pipeline
 		*/
@@ -2293,7 +2284,7 @@ public:
 		//shyun added begin
 		// Matrix from light's point of view
 		glm::mat4 depthProjectionMatrix = glm::perspective(glm::radians(lightFOV), 1.0f, zNear, zFar);
-		glm::mat4 depthViewMatrix = glm::lookAt(glm::vec3(uniformDataComposition.lightPos[0]), glm::vec3(0.0f), glm::vec3(0, -1, 0));
+		glm::mat4 depthViewMatrix = glm::lookAt(glm::vec3(uniformDataComposition.lightPos), glm::vec3(0.0f), glm::vec3(0, -1, 0));
 		glm::mat4 depthModelMatrix = glm::mat4(1.0f);
 
 		uniformDataShadowmap.depthMVP = depthProjectionMatrix * depthViewMatrix * depthModelMatrix;
@@ -2335,6 +2326,7 @@ public:
 			100.0f, 0.0f + sin(glm::radians(timer * 360.0f)) * 15.0f, 1.0f);
 #elif ASSET == 1
 		uniformDataComposition.lightPos = glm::vec4(1.0f, 100.0f, 0.0f, 1.0f);
+		uniformDataComposition.lightPos = glm::vec4(cos(glm::radians(timer * 360.0f)) * 50.0f, 100.0f, sin(glm::radians(timer * 360.0f)) * 50.0f, 1.0f);
 #elif ASSET == 2
 		uniformDataComposition.lightPos = glm::vec4(-0.911594f, 3.861007f, -1.508170f, 1.0f);
 #endif
@@ -2817,8 +2809,8 @@ public:
 		texDescr.filterMode = cudaFilterModePoint;
 		texDescr.mipmapFilterMode = cudaFilterModePoint;
 
-		texDescr.addressMode[0] = cudaAddressModeWrap;
-		texDescr.addressMode[1] = cudaAddressModeWrap;
+		texDescr.addressMode[0] = cudaAddressModeClamp;
+		texDescr.addressMode[1] = cudaAddressModeClamp;
 
 		texDescr.maxMipmapLevelClamp = float(mipLevels - 1);
 
@@ -2920,16 +2912,6 @@ public:
 		cudaVkSemaphoreWait();
 
 		float projInverseMat[16], viewInverseMat[16], depthBiasMVPMat[16], lightPos[4];
-		//transformToRowMajor4x4(uniformDataComposition.projInverse, projInverseMat);
-		//CUDA_CALL(cudaMemcpyToSymbol(projInverse, projInverseMat, sizeof(float) * 16));
-
-		//transformToRowMajor4x4(uniformDataComposition.viewInverse, viewInverseMat);
-		//CUDA_CALL(cudaMemcpyToSymbol(viewInverse, viewInverseMat, sizeof(float) * 16));
-
-		//transformToRowMajor4x4(uniformDataComposition.depthBiasMVP, depthBiasMVPMat);
-		//CUDA_CALL(cudaMemcpyToSymbol(depthBiasMVP, depthBiasMVPMat, sizeof(float) * 16));
-
-		//CUDA_CALL(cudaMemcpyToSymbol(lightPos, &uniformDataComposition.lightPos, sizeof(float) * 3));
 
 		transformToRowMajor4x4(uniformDataComposition.projInverse, projInverseMat);
 		transformToRowMajor4x4(uniformDataComposition.viewInverse, viewInverseMat);
